@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+
+  ##########################################################################
+  # PostgreSQL - Operational Database
+  ##########################################################################
+
+  postgres:
+
+    image: postgres:17
+
+    container_name: people_analytics_postgres
+
+    restart: always
+
+    environment:
+      POSTGRES_DB: people_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      # Host:Container
+      # We use 5433 on host to avoid conflict with local Postgres
+      - "5433:5432"
+
+    volumes:
+      # Persistent storage so data is not lost on restart
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      # Ensures container is ready before dependent services connect
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - analytics_net
+
+
+##########################################################################
+# Optional: Future Services (placeholders for later phases)
+##########################################################################
+
+  # airflow:
+  #   image: apache/airflow:2.9.0
+  #   ...
+
+  # spark:
+  #   image: bitnami/spark:3.5
+  #   ...
+
+volumes:
+  postgres_data:
+
+networks:
+  analytics_net:
+    driver: bridge
