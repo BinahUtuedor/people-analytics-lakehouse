@@ -422,6 +422,381 @@ Representative tables include:
 
 ---
 
+## Operational Database ER Diagram
+
+### Operational Database ER Diagram
+                                         +----------------------+
+                                         |      Locations       |
+                                         +----------------------+
+                                         | PK location_id       |
+                                         | country             |
+                                         | city                |
+                                         | office_name         |
+                                         | timezone            |
+                                         +----------+----------+
+                                                    |
+                                                    |
+                                                    |
+                                         +----------v----------+
+                                         |   Business Units    |
+                                         +---------------------+
+                                         | PK business_unit_id |
+                                         | unit_name           |
+                                         +----------+----------+
+                                                    |
+                                                    |
+                                         +----------v----------+
+                                         |    Departments      |
+                                         +---------------------+
+                                         | PK department_id    |
+                                         | FK business_unit_id |
+                                         | department_name     |
+                                         | cost_center         |
+                                         +----------+----------+
+                                                    |
+                                                    |
+                         +--------------------------+-------------------------+
+                         |                                                    |
+                         |                                                    |
+               +---------v----------+                             +-----------v-----------+
+               |     Job Roles      |                             |      Managers         |
+               +--------------------+                             +-----------------------+
+               | PK role_id         |                             | PK manager_id         |
+               | role_name          |                             | FK employee_id        |
+               | grade              |                             | leadership_level      |
+               | salary_band        |                             +-----------+-----------+
+               +---------+----------+                                         |
+                         |                                                    |
+                         |                                                    |
+                         +----------------------+-----------------------------+
+                                                |
+                                                |
+                                      +---------v----------+
+                                      |     Employees      |
+                                      +--------------------+
+                                      | PK employee_id     |
+                                      | employee_number    |
+                                      | first_name         |
+                                      | last_name          |
+                                      | email              |
+                                      | gender             |
+                                      | dob                |
+                                      | hire_date          |
+                                      | employment_status  |
+                                      | FK department_id   |
+                                      | FK role_id         |
+                                      | FK manager_id      |
+                                      | FK location_id     |
+                                      +---------+----------+
+                                                |
+          ---------------------------------------------------------------------------------------------
+          |             |              |             |            |             |            |          |
+          |             |              |             |            |             |            |          |
++---------v----+ +------v------+ +-----v------+ +----v------+ +---v-------+ +---v-------+ +--v-----+ +-v----------------+
+| Attendance   | | Payroll     | | Leave      | | Training | | Promotion | | Transfer | | Survey | | Performance Review|
++--------------+ +-------------+ +------------+ +-----------+ +-----------+ +-----------+ +---------+ +------------------+
+| PK id        | | PK id       | | PK id      | | PK id     | | PK id     | | PK id     | | PK id  | | PK id           |
+| FK employee  | | FK employee | | FK employee| | FK emp    | | FK emp    | | FK emp    | | FK emp | | FK employee     |
+| work_date    | | pay_period  | | leave_type | | course    | | old_role  | | old_dept  | | score  | | review_date     |
+| hours        | | gross_pay   | | start_date | | provider  | | new_role  | | new_dept  | | text   | | overall_rating  |
++--------------+ +-------------+ +------------+ +-----------+ +-----------+ +-----------+ +---------+ +------------------+
+
+                                                                 |
+                                                                 |
+                           +-------------------------------------+-------------------------------------+
+                           |                                     |                                     |
+                           |                                     |                                     |
+               +-----------v-----------+              +----------v-----------+            +-----------v------------+
+               | Manager Feedback      |              | Exit Interviews      |            | Recruitment           |
+               +------------------------+              +----------------------+            +-----------------------+
+               | PK feedback_id         |              | PK exit_id           |            | PK recruitment_id     |
+               | FK employee_id         |              | FK employee_id       |            | FK department_id      |
+               | FK manager_id          |              | termination_date     |            | role_id              |
+               | comments               |              | reason               |            | candidate_name       |
+               | sentiment              |              | interview_text       |            | status               |
+               +------------------------+              +----------------------+            +-----------------------+
+
+---
+
+# Relationship Summary
+
+The following table summarises the primary relationships within the operational HR database.
+
+| Parent Entity | Child Entity | Cardinality | Description |
+|---------------|--------------|-------------|-------------|
+| Business Unit | Department | 1 : Many | A business unit contains multiple departments. |
+| Location | Employee | 1 : Many | A location can have many employees assigned to it. |
+| Department | Employee | 1 : Many | Each department employs multiple employees. |
+| Job Role | Employee | 1 : Many | Multiple employees may share the same job role. |
+| Manager | Employee | 1 : Many | One manager supervises multiple employees. |
+| Employee | Attendance | 1 : Many | An employee has multiple attendance records over time. |
+| Employee | Payroll | 1 : Many | Each employee receives payroll records for every pay period. |
+| Employee | Leave | 1 : Many | Employees can submit multiple leave requests throughout their employment. |
+| Employee | Training | 1 : Many | Employees may complete numerous training courses. |
+| Employee | Promotion | 1 : Many | Employees may receive multiple promotions during their career. |
+| Employee | Transfer | 1 : Many | Employees may transfer between departments or locations multiple times. |
+| Employee | Performance Review | 1 : Many | Employees receive periodic performance evaluations. |
+| Employee | Survey | 1 : Many | Employees may complete multiple engagement or satisfaction surveys. |
+| Employee | Manager Feedback | 1 : Many | Managers can provide multiple feedback records for each employee. |
+| Employee | Exit Interview | 1 : 0..1 | An employee has at most one exit interview upon leaving the organisation. |
+| Department | Recruitment | 1 : Many | Departments create multiple recruitment requests over time. |
+| Job Role | Recruitment | 1 : Many | Recruitment campaigns are associated with specific job roles. |
+
+---
+
+# Database Normalisation
+
+The operational database has been designed following the principles of **Third Normal Form (3NF)** to minimise redundancy, improve data integrity, and simplify future maintenance.
+
+The design follows several key principles:
+
+- **Lookup entities** such as Departments, Locations, Business Units and Job Roles are stored separately from transactional data.
+- **Transactional tables** (Attendance, Payroll, Leave, Performance Reviews, Promotions, Transfers, Surveys, etc.) reference employees using foreign keys rather than duplicating employee information.
+- Each table has a **single business responsibility**, ensuring a clean separation of concerns.
+- Primary and foreign key constraints enforce referential integrity across the database.
+- Lookup tables minimise duplicated values and improve consistency throughout the platform.
+- The schema has been designed to support efficient joins for downstream ETL and analytics workloads.
+
+This normalised operational model serves as the authoritative source system from which analytical models can later be built in the Lakehouse.
+
+---
+
+# Gold Layer Star Schemas
+
+The operational PostgreSQL database is optimised for transactional processing (OLTP). During the Lakehouse transformation process, the data will be remodelled into dimensional star schemas optimised for analytical workloads (OLAP).
+
+The following analytical marts will be created within the Gold layer.
+
+---
+
+## Workforce Analytics
+
+**Fact Table**
+
+- `fact_workforce`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_department`
+- `dim_location`
+- `dim_job_role`
+- `dim_date`
+
+**Business Purpose**
+
+Provides workforce headcount, demographics, organisational structure, and employee movement analytics.
+
+---
+
+## Payroll Analytics
+
+**Fact Table**
+
+- `fact_payroll`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_department`
+- `dim_date`
+
+**Business Purpose**
+
+Supports salary analysis, payroll trends, compensation reporting, overtime analysis, and labour cost forecasting.
+
+---
+
+## Attendance Analytics
+
+**Fact Table**
+
+- `fact_attendance`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_department`
+- `dim_date`
+
+**Business Purpose**
+
+Measures attendance, absenteeism, overtime, lateness, and workforce utilisation.
+
+---
+
+## Performance Analytics
+
+**Fact Table**
+
+- `fact_performance`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_manager`
+- `dim_department`
+- `dim_date`
+
+**Business Purpose**
+
+Supports employee performance monitoring, manager effectiveness, KPI tracking, and performance trend analysis.
+
+---
+
+## Recruitment Analytics
+
+**Fact Table**
+
+- `fact_recruitment`
+
+**Dimension Tables**
+
+- `dim_department`
+- `dim_job_role`
+- `dim_date`
+
+**Business Purpose**
+
+Measures recruitment activity, hiring pipeline efficiency, time-to-hire, and recruitment success rates.
+
+---
+
+## Learning & Development Analytics
+
+**Fact Table**
+
+- `fact_training`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_course`
+- `dim_department`
+- `dim_date`
+
+**Business Purpose**
+
+Tracks employee learning, certification completion, mandatory training compliance, and training effectiveness.
+
+---
+
+## Employee Engagement Analytics
+
+**Fact Table**
+
+- `fact_surveys`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_department`
+- `dim_manager`
+- `dim_date`
+
+**Business Purpose**
+
+Analyses employee engagement scores, organisational sentiment, survey participation, and manager effectiveness.
+
+---
+
+## Attrition Analytics
+
+**Fact Table**
+
+- `fact_attrition`
+
+**Dimension Tables**
+
+- `dim_employee`
+- `dim_exit_reason`
+- `dim_department`
+- `dim_date`
+
+**Business Purpose**
+
+Supports voluntary and involuntary attrition reporting, turnover analysis, retention monitoring, and predictive attrition modelling.
+
+---
+
+# Dimensional Modelling Strategy
+
+The Gold Layer adopts a **Kimball-style dimensional modelling approach**.
+
+Each analytical mart consists of:
+
+- One central **Fact Table** containing measurable business events.
+- Multiple surrounding **Dimension Tables** describing the business context.
+- Shared conformed dimensions (such as Employee, Department and Date) to ensure consistent reporting across all subject areas.
+
+This modelling approach significantly improves query performance and simplifies dashboard development within Power BI.
+
+---
+
+# Design Recommendation
+
+To further align the project with enterprise data engineering best practices, the following enhancements are recommended before implementation begins.
+
+## Introduce a Dedicated Date Dimension
+
+Create a reusable `dim_date` table that contains:
+
+- Calendar Date
+- Day
+- Week
+- Month
+- Quarter
+- Year
+- Financial Year
+- Financial Quarter
+- Weekday Indicator
+- Public Holiday Indicator
+
+A shared Date Dimension simplifies time-series reporting across all analytical models and is considered a standard component of modern data warehouses and Lakehouse platforms.
+
+---
+
+## Implement Slowly Changing Dimensions (Type 2)
+
+Certain business entities naturally evolve over time. Rather than overwriting historical values, implement **Slowly Changing Dimension (SCD) Type 2** logic within the Silver and Gold layers to preserve historical changes.
+
+Recommended SCD Type 2 dimensions include:
+
+- `dim_employee`
+- `dim_department`
+- `dim_job_role`
+- `dim_manager`
+- `dim_location`
+
+Each historical version should include fields such as:
+
+- Effective Start Date
+- Effective End Date
+- Current Record Flag
+- Version Number
+
+This enables historical reporting such as:
+
+- Department changes over time
+- Salary progression
+- Manager changes
+- Job role evolution
+- Organisational restructuring
+
+---
+
+## Benefits
+
+Adopting these enhancements will provide:
+
+- Enterprise-grade dimensional modelling
+- Complete historical tracking
+- Simplified analytical reporting
+- Faster Power BI performance
+- Better support for dbt transformations
+- Improved scalability for future machine learning workloads
+- Alignment with modern Lakehouse architecture and industry best practices
+
 ## ETL Pipeline
 
 ```text
