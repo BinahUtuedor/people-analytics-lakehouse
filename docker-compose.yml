@@ -21,15 +21,14 @@ services:
 
     ports:
       # Host:Container
-      # We use 5433 on host to avoid conflict with local Postgres
+      # We use 5433 on host to avoid conflict with any local PostgreSQL installation
       - "5433:5432"
 
     volumes:
-      # Persistent storage so data is not lost on restart
+      # Persist PostgreSQL data
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      # Ensures container is ready before dependent services connect
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
@@ -38,22 +37,55 @@ services:
     networks:
       - analytics_net
 
+  ##########################################################################
+  # pgAdmin 4
+  ##########################################################################
+
+  pgadmin:
+
+    image: dpage/pgadmin4:latest
+
+    container_name: people_analytics_pgadmin
+
+    restart: always
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@peopleanalytics.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    ports:
+      - "5050:80"
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+    networks:
+      - analytics_net
+
 
 ##########################################################################
-# Optional: Future Services (placeholders for later phases)
+# Future Services
 ##########################################################################
 
-  # airflow:
-  #   image: apache/airflow:2.9.0
-  #   ...
+# airflow:
+#   image: apache/airflow:2.9.0
+#   ...
 
-  # spark:
-  #   image: bitnami/spark:3.5
-  #   ...
+# spark:
+#   image: bitnami/spark:3.5
+#   ...
 
 volumes:
+
   postgres_data:
 
+  pgadmin_data:
+
 networks:
+
   analytics_net:
     driver: bridge

@@ -1,0 +1,98 @@
+[
+    {
+        "check_name": "Employees count greater than zero",
+        "passed": true,
+        "record_count": 2000,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Attendance count greater than zero",
+        "passed": true,
+        "record_count": 757489,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Payroll count greater than zero",
+        "passed": true,
+        "record_count": 37626,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Exactly one employee has no manager",
+        "passed": true,
+        "record_count": 1,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No non-manager employees without manager",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No duplicate employee numbers",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No duplicate employee emails",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employees with missing department",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employees with missing job role",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employees with missing location",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No orphan attendance records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No orphan payroll records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employees with negative salary",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employees with termination before hire date",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No exit interviews for active employees",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No negative payroll records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    }
+]

@@ -148,25 +148,17 @@ people-analytics-lakehouse-platform/
 │
 ├── simulator/                           # Company simulation engine
 │   ├── __init__.py
-│   ├── company.py
-│   ├── departments.py
-│   ├── locations.py
-│   ├── job_roles.py
-│   ├── managers.py
-│   ├── employees.py
-│   ├── payroll.py
 │   ├── attendance.py
-│   ├── leave.py
-│   ├── recruitment.py
-│   ├── promotions.py
-│   ├── transfers.py
-│   ├── training.py
-│   ├── performance.py
-│   ├── engagement.py
-│   ├── surveys.py
-│   ├── manager_feedback.py
+│   ├── employees.py
 │   ├── exit_interviews.py
-│   ├── attrition.py
+│   ├── leave.py
+│   ├── manager_feedback.py
+│   ├── payroll.py
+│   ├── performance.py
+│   ├── recruitment.py
+│   ├── surveys.py
+│   ├── training.py
+│   ├── transfer.py
 │   └── simulator.py                     # Simulation orchestrator
 │
 ├── database/                            # Operational database
@@ -199,9 +191,12 @@ people-analytics-lakehouse-platform/
 ├── quality/                             # Data quality framework
 │   ├── __init__.py
 │   ├── validation.py
+│   ├── exceptions.py
 │   ├── expectations.py
 │   ├── duplicate_checks.py
 │   ├── integrity_checks.py
+│   ├── metrics.py
+│   ├── report.py
 │   └── business_rules.py
 │
 ├── etl/                                 # ETL pipelines
