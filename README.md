@@ -135,6 +135,52 @@ This project demonstrates practical experience in:
 
 ---
 
+
+
+---
+
+# Documentation
+
+Comprehensive project documentation is organised under the `docs/` directory to keep this README concise while providing detailed implementation guidance.
+
+| Guide | Description |
+|--------|-------------|
+| `docs/architecture/repository-structure.md` | Complete repository structure and module descriptions |
+| `docs/architecture/system-architecture.md` | Enterprise platform architecture |
+| `docs/architecture/database-architecture.md` | PostgreSQL schemas and database design |
+| `docs/architecture/data-flow.md` | End-to-end data movement through the platform |
+| `docs/data-governance/data-dictionary.md` | Business and technical data dictionary |
+| `docs/data-governance/data-lineage.md` | Source-to-consumption lineage |
+| `docs/data-governance/metadata-framework.md` | Metadata standards and governance |
+| `docs/data-governance/data-catalogue.md` | Enterprise metadata catalogue |
+| `docs/data-governance/data-quality-framework.md` | Data quality architecture |
+| `docs/data-governance/reference-data.md` | Reference data management |
+| `docs/data-governance/security-and-data-sharing.md` | API governance and secure data sharing |
+| `docs/implementation/` | Local development, Docker, Airflow, Spark, dbt, API, Terraform and deployment guides |
+
+---
+
+# Platform Enhancements
+
+The platform has evolved beyond a traditional data engineering portfolio into an enterprise-grade data platform.
+
+Additional capabilities include:
+
+- Enterprise metadata management
+- Data catalogue
+- Reference data framework
+- Secure REST API
+- API governance and data sharing
+- Third-party API integrations
+- Terraform Infrastructure as Code
+- GitHub Actions CI/CD
+- Monitoring and observability
+- Shared utility framework
+- Developer automation scripts
+
+For implementation details, refer to the documentation hub above.
+
+
 ## Repository Structure
 
 The repository is organised into modular components covering simulation,
@@ -147,7 +193,7 @@ See the complete repository structure:
 - [Repository Structure](docs/architecture/repository-structure.md)
 - [Database Architecture](docs/architecture/database-architecture.md)
 
-## Repository Overview
+## Top-Level Modules
 
 | Folder         | Purpose                                                    |
 | -------------- | ---------------------------------------------------------- |
