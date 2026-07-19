@@ -1,12 +1,11 @@
 """
 Attendance simulation module.
 
-Improved design:
-- Attendance no longer stores Annual Leave or Sick Leave as statuses.
-- Leave will later be generated in leave_requests.
-- Attendance now captures realistic work patterns:
+- Attendance captures realistic work patterns:
   Present, Remote, Hybrid, Training, Business Travel, Absent.
 - absence_reason is only populated when status = Absent.
+- Leave will later be generated in leave_requests.
+
 """
 
 from __future__ import annotations
@@ -64,10 +63,9 @@ def is_weekend(work_date: date) -> bool:
 
 def is_public_holiday(work_date: date) -> bool:
     """
-    Basic fixed public holiday logic.
-
     This is intentionally simple for now.
     More detailed UK bank holiday logic can be added later.
+    
     """
 
     return work_date.strftime("%m-%d") in UK_PUBLIC_HOLIDAYS
