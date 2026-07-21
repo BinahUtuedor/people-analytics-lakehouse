@@ -59,6 +59,83 @@ def score() -> Decimal:
     )
 
 
+def calculate_overall_rating(
+    productivity_score: Decimal,
+    quality_score: Decimal,
+    teamwork_score: Decimal,
+    leadership_score: Decimal | None,
+) -> Decimal:
+    """
+    Calculate the employee's overall performance rating from the
+    individual performance dimensions.
+
+    For non-manager employees, the overall rating is calculated from:
+
+        - productivity;
+        - quality;
+        - teamwork.
+
+    For managers, leadership is also included in the calculation:
+
+        - productivity;
+        - quality;
+        - teamwork;
+        - leadership.
+
+    Using the average of the underlying performance dimensions ensures
+    that the overall rating remains consistent with the employee's
+    detailed performance scores.
+
+    Args:
+        productivity_score:
+            Employee productivity rating.
+
+        quality_score:
+            Employee quality rating.
+
+        teamwork_score:
+            Employee teamwork rating.
+
+        leadership_score:
+            Employee leadership rating.
+            This is only populated for managers.
+
+    Returns:
+        Decimal:
+            Overall performance rating rounded to two decimal places.
+    """
+
+    # Start with the performance dimensions that apply to every employee.
+    ratings = [
+        productivity_score,
+        quality_score,
+        teamwork_score,
+    ]
+
+    # Leadership only contributes to the overall score when the employee
+    # is a manager and therefore has a leadership rating.
+    if leadership_score is not None:
+        ratings.append(
+            leadership_score
+        )
+
+    # Calculate the arithmetic mean of all applicable performance ratings.
+    overall_rating = (
+        sum(
+            ratings,
+            Decimal("0.00"),
+        )
+        / Decimal(
+            len(ratings)
+        )
+    )
+
+    # Maintain the existing two-decimal-place rating format.
+    return overall_rating.quantize(
+        Decimal("0.01")
+    )
+
+
 # -------------------------------------------------------------------
 # Qualitative review content
 #
@@ -302,10 +379,8 @@ def generate_performance_reviews(
             # Generate individual performance metrics first.
             #
             # These scores are reused when generating qualitative
-            # strengths and development areas.
+            # strengths, development areas and the overall rating.
             # -----------------------------------------------------------
-
-            overall = score()
 
             productivity_score = score()
 
@@ -319,6 +394,27 @@ def generate_performance_reviews(
                 score()
                 if employee.is_manager
                 else None
+            )
+
+            # -----------------------------------------------------------
+            # Calculate overall performance from the individual ratings.
+            #
+            # Non-managers:
+            # productivity + quality + teamwork / 3
+            #
+            # Managers:
+            # productivity + quality + teamwork + leadership / 4
+            #
+            # This replaces the previous independently random overall
+            # rating and ensures that the overall result accurately
+            # reflects the employee's underlying performance ratings.
+            # -----------------------------------------------------------
+
+            overall = calculate_overall_rating(
+                productivity_score=productivity_score,
+                quality_score=quality_score,
+                teamwork_score=teamwork_score,
+                leadership_score=leadership_score,
             )
 
             # -----------------------------------------------------------
@@ -361,7 +457,8 @@ def generate_performance_reviews(
                     year
                 ),
 
-                # Overall employee performance rating.
+                # Overall employee performance rating calculated from
+                # the applicable underlying performance dimensions.
                 overall_rating=overall,
 
                 # Individual performance dimensions.

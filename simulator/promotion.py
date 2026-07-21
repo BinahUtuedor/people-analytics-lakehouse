@@ -3,16 +3,38 @@ Promotion simulation module.
 
 This module generates simulated employee promotion records.
 
-The promotion reason is generated dynamically based on context such as:
-- salary increase percentage;
-- whether the employee is moving into a more senior-looking role;
-- employee performance/potential assumptions inferred from the promotion event.
+Promotion eligibility and role progression are designed to align with
+the JobRole reference data already used by the application.
 
-This creates more varied and realistic promotion data for downstream:
+A valid promotion must satisfy the following conditions:
+
+- the employee must be selected as a promotion candidate;
+- the new role must not be the employee's current role;
+- the new role must belong to a strictly higher organisational grade;
+- same-grade moves are excluded because they represent lateral moves;
+- lower-grade moves are excluded because they represent demotions.
+
+The existing JobRole.grade field is used as the authoritative indicator
+of organisational seniority.
+
+Current configured hierarchy:
+
+    Associate
+        ↓
+    Senior Associate
+        ↓
+    Manager
+
+The promotion reason is generated dynamically based on:
+- salary increase percentage;
+- whether the destination role is a Manager-grade role.
+
+This creates more realistic promotion data for downstream:
 - People Analytics;
-- promotion trend analysis;
 - career progression analysis;
 - compensation analytics;
+- workforce planning;
+- promotion modelling;
 - machine learning.
 """
 
@@ -29,17 +51,35 @@ from database.models import Employee, JobRole, Promotion
 # -------------------------------------------------------------------
 # Random seed
 #
-# Ensures reproducibility when the simulation is rerun with the same
-# configured random seed.
+# Ensures that simulation results remain reproducible when the same
+# configured seed is used.
 # -------------------------------------------------------------------
 
 random.seed(DEFAULT_RANDOM_SEED)
 
 
 # -------------------------------------------------------------------
+# Organisational grade hierarchy
+#
+# These values correspond directly to the grades defined in the
+# application's JOB_ROLES seed/reference data.
+#
+# The numeric values exist only to support comparison.
+# A higher number represents a more senior organisational grade.
+# -------------------------------------------------------------------
+
+GRADE_SENIORITY = {
+    "Associate": 1,
+    "Senior Associate": 2,
+    "Manager": 3,
+}
+
+
+# -------------------------------------------------------------------
 # Promotion reason templates
 #
-# Reasons are grouped by broad promotion context.
+# Promotion reasons are grouped according to the size and context
+# of the employee's progression.
 # -------------------------------------------------------------------
 
 PROMOTION_REASONS = {
@@ -105,101 +145,333 @@ PROMOTION_REASONS = {
 }
 
 
+def get_role_seniority(
+    role: JobRole,
+) -> int:
+    """
+    Return the organisational seniority level for a JobRole.
+
+    The role's existing ``grade`` field is used instead of attempting
+    to infer seniority from keywords in the role title.
+
+    This is important because roles such as:
+
+        Finance Business Partner
+
+    are Manager-grade roles even though the word "Manager" does not
+    appear in the role name.
+
+    Similarly:
+
+        Data Engineer
+        Software Engineer
+
+    are Senior Associate roles despite not containing the word
+    "Senior" in their titles.
+
+    Args:
+        role:
+            JobRole ORM object.
+
+    Returns:
+        int:
+            Numeric seniority level corresponding to the role's grade.
+
+    Raises:
+        ValueError:
+            If the JobRole has no grade or contains a grade that has
+            not been configured in GRADE_SENIORITY.
+    """
+
+    # ---------------------------------------------------------------
+    # Safely normalise the grade value.
+    # ---------------------------------------------------------------
+
+    grade = (
+        role.grade.strip()
+        if role.grade
+        else None
+    )
+
+    # ---------------------------------------------------------------
+    # Do not silently guess the seniority of an unknown grade.
+    #
+    # Failing explicitly is safer because an unknown grade could
+    # otherwise cause a promotion to become an accidental lateral
+    # move or demotion.
+    # ---------------------------------------------------------------
+
+    if grade not in GRADE_SENIORITY:
+        raise ValueError(
+            f"Unknown job grade '{grade}' "
+            f"for role '{role.role_name}'. "
+            f"Expected one of: "
+            f"{', '.join(GRADE_SENIORITY.keys())}."
+        )
+
+    return GRADE_SENIORITY[
+        grade
+    ]
+
+
+def get_employee_current_role(
+    employee: Employee,
+    job_roles: list[JobRole],
+) -> JobRole | None:
+    """
+    Resolve an employee's current JobRole object.
+
+    The Employee model already stores ``role_id``. The supplied list
+    of JobRole objects is therefore searched for the matching role.
+
+    This keeps the implementation compatible with the existing
+    simulator and avoids requiring any new ORM relationships.
+
+    Args:
+        employee:
+            Employee whose current role should be resolved.
+
+        job_roles:
+            JobRole records available to the simulator.
+
+    Returns:
+        JobRole | None:
+            Current role where found, otherwise None.
+    """
+
+    return next(
+        (
+            role
+            for role in job_roles
+            if role.role_id
+            == employee.role_id
+        ),
+        None,
+    )
+
+
+def select_promotion_role(
+    employee: Employee,
+    job_roles: list[JobRole],
+) -> JobRole | None:
+    """
+    Select a valid higher-grade role for an employee.
+
+    A role qualifies as a promotion destination only when:
+
+        new grade > current grade
+
+    The following transitions are therefore excluded:
+
+    Same role:
+        Data Analyst -> Data Analyst
+
+    Same grade / lateral move:
+        Finance Analyst -> HR Advisor
+        Project Manager -> Operations Manager
+
+    Demotion:
+        Data Engineer -> Data Analyst
+        Finance Business Partner -> Finance Analyst
+
+    Valid examples include:
+
+        Data Analyst
+            Associate
+                ->
+        Data Engineer
+            Senior Associate
+
+    and:
+
+        Data Engineer
+            Senior Associate
+                ->
+        Senior Data Engineer
+            Manager
+
+    Args:
+        employee:
+            Employee being considered for promotion.
+
+        job_roles:
+            Available JobRole ORM objects.
+
+    Returns:
+        JobRole | None:
+            A randomly selected higher-grade role.
+
+            None is returned when:
+            - the employee's current role cannot be resolved; or
+            - no higher-grade role exists.
+    """
+
+    # ---------------------------------------------------------------
+    # Resolve the employee's existing role.
+    # ---------------------------------------------------------------
+
+    current_role = get_employee_current_role(
+        employee=employee,
+        job_roles=job_roles,
+    )
+
+    # ---------------------------------------------------------------
+    # If the current role cannot be identified, do not create an
+    # unreliable promotion record.
+    # ---------------------------------------------------------------
+
+    if current_role is None:
+        return None
+
+    # ---------------------------------------------------------------
+    # Determine current organisational seniority.
+    # ---------------------------------------------------------------
+
+    current_seniority = get_role_seniority(
+        current_role
+    )
+
+    # ---------------------------------------------------------------
+    # Keep only roles belonging to a strictly higher grade.
+    #
+    # The role_id check explicitly prevents the current role from
+    # being selected, although a strictly higher grade would normally
+    # exclude it anyway.
+    # ---------------------------------------------------------------
+
+    eligible_roles = [
+        role
+        for role in job_roles
+        if (
+            role.role_id
+            != employee.role_id
+            and get_role_seniority(
+                role
+            )
+            > current_seniority
+        )
+    ]
+
+    # ---------------------------------------------------------------
+    # Employees already at the highest available grade may have no
+    # valid promotion destination.
+    #
+    # They are skipped instead of generating an artificial promotion.
+    # ---------------------------------------------------------------
+
+    if not eligible_roles:
+        return None
+
+    # ---------------------------------------------------------------
+    # Random selection is retained, but only within the set of roles
+    # that genuinely represent upward organisational progression.
+    # ---------------------------------------------------------------
+
+    return random.choice(
+        eligible_roles
+    )
+
+
 def generate_promotion_reason(
     salary_increase_percent: Decimal,
     new_role: JobRole,
 ) -> str:
     """
-    Generate a promotion reason based on promotion context.
+    Generate a contextual promotion reason.
 
-    The salary increase is used as the main signal:
+    The existing salary-increase logic is preserved:
 
-    - >= 15%:
-        Significant promotion / major increase in responsibility.
+        >= 15%
+            Significant promotion / expanded responsibilities.
 
-    - 10% to 14.99%:
-        Strong performance and broader responsibilities.
+        10% to 14.99%
+            Strong performance / broader responsibilities.
 
-    - below 10%:
-        Career progression and development.
+        < 10%
+            Career progression.
 
-    A leadership-oriented reason may also be selected where the target
-    role name appears managerial or senior in nature.
+    Manager-grade destination roles may receive leadership-focused
+    promotion reasons.
+
+    Unlike the previous implementation, Manager-grade status is
+    determined from the formal JobRole.grade field rather than from
+    keywords in the role title.
 
     Args:
         salary_increase_percent:
             Percentage salary increase associated with the promotion.
 
         new_role:
-            Target JobRole ORM object.
+            Destination JobRole.
 
     Returns:
         str:
-            Contextual promotion reason.
+            Context-sensitive promotion reason.
     """
 
-    # -------------------------------------------------------------------
-    # Inspect the target role name for leadership/seniority indicators.
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
+    # The grade field provides a reliable indication of whether this
+    # promotion moves the employee into the highest currently defined
+    # organisational grade.
+    # ---------------------------------------------------------------
 
-    role_name = (
-        new_role.role_name.lower()
-        if new_role.role_name
-        else ""
+    is_manager_grade = (
+        new_role.grade == "Manager"
     )
 
-    leadership_keywords = [
-        "manager",
-        "lead",
-        "head",
-        "director",
-        "senior",
-    ]
-
-    is_leadership_role = any(
-        keyword in role_name
-        for keyword in leadership_keywords
-    )
-
-    # -------------------------------------------------------------------
-    # Where the new role appears managerial or senior, occasionally use
-    # leadership-specific wording.
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
+    # Manager-grade promotions have a reasonable probability of
+    # receiving a leadership-focused promotion reason.
+    #
+    # Existing 60% behaviour is retained from the previous simulator.
+    # ---------------------------------------------------------------
 
     if (
-        is_leadership_role
+        is_manager_grade
         and random.random() < 0.60
     ):
         return random.choice(
-            PROMOTION_REASONS["leadership"]
+            PROMOTION_REASONS[
+                "leadership"
+            ]
         )
 
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # Significant salary increase.
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
 
-    if salary_increase_percent >= Decimal("15.00"):
+    if (
+        salary_increase_percent
+        >= Decimal("15.00")
+    ):
         return random.choice(
-            PROMOTION_REASONS["high_increase"]
+            PROMOTION_REASONS[
+                "high_increase"
+            ]
         )
 
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # Moderate salary increase.
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
 
-    if salary_increase_percent >= Decimal("10.00"):
+    if (
+        salary_increase_percent
+        >= Decimal("10.00")
+    ):
         return random.choice(
-            PROMOTION_REASONS["moderate_increase"]
+            PROMOTION_REASONS[
+                "moderate_increase"
+            ]
         )
 
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # Lower-end promotion increase.
-    #
-    # The promotion is framed primarily as career progression.
-    # -------------------------------------------------------------------
+    # ---------------------------------------------------------------
 
     return random.choice(
-        PROMOTION_REASONS["career_progression"]
+        PROMOTION_REASONS[
+            "career_progression"
+        ]
     )
 
 
@@ -208,31 +480,39 @@ def generate_promotions(
     job_roles: list[JobRole],
 ) -> list[Promotion]:
     """
-    Generate simulated promotion records.
+    Generate simulated employee promotion records.
 
-    Approximately 8% of non-manager employees are selected as promotion
-    candidates.
+    Existing promotion-candidate behaviour is preserved:
+
+        - managers are excluded;
+        - approximately 8% of remaining employees are initially
+          selected as promotion candidates.
+
+    A promotion record is then created only when a genuine higher-grade
+    role exists.
 
     Args:
         employees:
-            List of Employee ORM objects.
+            Employee ORM objects.
 
         job_roles:
-            List of available JobRole ORM objects.
+            Available JobRole ORM objects.
 
     Returns:
         list[Promotion]:
-            Generated promotion records.
+            Generated valid promotion records.
     """
 
     # Container for generated promotion records.
     records: list[Promotion] = []
 
     # -------------------------------------------------------------------
-    # Select employees eligible for promotion.
+    # Select initial promotion candidates.
     #
-    # Managers are excluded in the current simulation logic.
-    # Approximately 8% of remaining employees are selected.
+    # This preserves the existing simulator behaviour:
+    #
+    # - employees currently identified as managers are excluded;
+    # - approximately 8% of remaining employees become candidates.
     # -------------------------------------------------------------------
 
     eligible = [
@@ -245,22 +525,53 @@ def generate_promotions(
     ]
 
     # -------------------------------------------------------------------
-    # Generate a promotion record for each selected employee.
+    # Generate promotion records.
     # -------------------------------------------------------------------
 
     for employee in eligible:
 
-        # Randomly select the employee's new role.
-        new_role = random.choice(
-            job_roles
+        # ---------------------------------------------------------------
+        # Select a genuine higher-grade destination role.
+        #
+        # This replaces the previous:
+        #
+        #     new_role = random.choice(job_roles)
+        #
+        # which could result in:
+        # - the same role;
+        # - a same-grade lateral move;
+        # - a lower-grade role.
+        # ---------------------------------------------------------------
+
+        new_role = select_promotion_role(
+            employee=employee,
+            job_roles=job_roles,
         )
 
+        # ---------------------------------------------------------------
+        # No valid progression path exists.
+        #
+        # Skip this candidate rather than generating an invalid
+        # promotion record.
+        # ---------------------------------------------------------------
+
+        if new_role is None:
+            continue
+
+        # ---------------------------------------------------------------
         # Current annual salary before promotion.
+        # ---------------------------------------------------------------
+
         old_salary = Decimal(
             employee.annual_salary
         )
 
+        # ---------------------------------------------------------------
         # Generate salary increase between 8% and 20%.
+        #
+        # Existing salary logic is intentionally unchanged.
+        # ---------------------------------------------------------------
+
         increase_rate = Decimal(
             str(
                 round(
@@ -273,19 +584,28 @@ def generate_promotions(
             )
         )
 
-        # Calculate the monetary salary increase.
+        # ---------------------------------------------------------------
+        # Calculate monetary increase.
+        # ---------------------------------------------------------------
+
         increase = (
             old_salary
             * increase_rate
         )
 
+        # ---------------------------------------------------------------
         # Calculate salary following promotion.
+        # ---------------------------------------------------------------
+
         new_salary = (
             old_salary
             + increase
         )
 
+        # ---------------------------------------------------------------
         # Calculate salary increase percentage.
+        # ---------------------------------------------------------------
+
         salary_increase_percent = (
             (
                 increase
@@ -300,22 +620,25 @@ def generate_promotions(
             )
         )
 
-        # -------------------------------------------------------------------
-        # Generate contextual promotion reason.
+        # ---------------------------------------------------------------
+        # Generate promotion reason from:
         #
-        # This ensures that not every promotion receives the same reason.
-        # -------------------------------------------------------------------
+        # - salary increase;
+        # - destination grade.
+        # ---------------------------------------------------------------
 
         promotion_reason = (
             generate_promotion_reason(
-                salary_increase_percent=salary_increase_percent,
+                salary_increase_percent=(
+                    salary_increase_percent
+                ),
                 new_role=new_role,
             )
         )
 
-        # -------------------------------------------------------------------
+        # ---------------------------------------------------------------
         # Create Promotion ORM object.
-        # -------------------------------------------------------------------
+        # ---------------------------------------------------------------
 
         promotion = Promotion(
 
@@ -323,9 +646,11 @@ def generate_promotions(
             employee=employee,
 
             # Existing role before promotion.
-            old_role_id=employee.role_id,
+            old_role_id=(
+                employee.role_id
+            ),
 
-            # New role following promotion.
+            # Higher-grade destination role.
             new_role=new_role,
 
             # Simulated promotion date.
@@ -342,14 +667,16 @@ def generate_promotions(
             # Salary before promotion.
             old_salary=old_salary,
 
-            # Salary following promotion.
-            new_salary=new_salary.quantize(
-                Decimal(
-                    "0.01"
+            # Salary after promotion.
+            new_salary=(
+                new_salary.quantize(
+                    Decimal(
+                        "0.01"
+                    )
                 )
             ),
 
-            # Monetary value of salary increase.
+            # Monetary salary increase.
             salary_increase_amount=(
                 increase.quantize(
                     Decimal(
@@ -368,17 +695,22 @@ def generate_promotions(
                 promotion_reason
             ),
 
-            # Promotion approval is attributed to the employee's manager.
+            # Existing approval behaviour is retained.
+            #
+            # Promotion approval is attributed to the employee's
+            # current manager.
             approved_by_manager=(
                 employee.manager
             ),
         )
 
-        # Add generated promotion to output collection.
+        # Add valid promotion record to output collection.
         records.append(
             promotion
         )
 
-    # Return all generated Promotion ORM objects to the
-    # simulation orchestrator.
+    # -------------------------------------------------------------------
+    # Return generated Promotion ORM objects to the simulator.
+    # -------------------------------------------------------------------
+
     return records
