@@ -10,7 +10,7 @@ The qualitative review fields:
 are generated dynamically based on the employee's simulated performance
 scores instead of using the same text for every employee.
 
-This creates more realistic data for downstream:
+This creates realistic data for downstream:
 - performance analytics;
 - promotion prediction;
 - retention analysis;
@@ -405,8 +405,7 @@ def generate_performance_reviews(
             # Managers:
             # productivity + quality + teamwork + leadership / 4
             #
-            # This replaces the previous independently random overall
-            # rating and ensures that the overall result accurately
+            # This ensures that the overall result accurately
             # reflects the employee's underlying performance ratings.
             # -----------------------------------------------------------
 

@@ -4,15 +4,12 @@ Payroll simulation module.
 This module generates monthly payroll records for employees across the
 configured historical period.
 
-Enhancements included:
 - Employees who start after the first day of a month receive prorated
   base pay for their first payroll period.
 - A selected proportion of employees receive simulated overtime pay.
 - Overtime is calculated using an implied hourly rate and an overtime
   multiplier.
 
-All other payroll calculations remain consistent with the original
-implementation.
 """
 
 from __future__ import annotations
@@ -379,14 +376,6 @@ def generate_payroll(
                 base_salary=base_salary,
                 monthly_salary=monthly_salary,
             )
-
-            # -----------------------------------------------------------
-            # Existing payroll calculations.
-            #
-            # These percentages remain unchanged from the original code.
-            # They are now applied to the payable base salary, which may
-            # be prorated during the employee's first month.
-            # -----------------------------------------------------------
 
             bonus = (
                 base_salary

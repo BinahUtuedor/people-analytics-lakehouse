@@ -18,8 +18,6 @@ This ensures that:
 - improvement areas are relevant to the score and type of feedback;
 - high-scoring employees receive appropriately positive feedback;
 - lower-scoring employees receive constructive development feedback.
-
-The module remains compatible with the existing ManagerFeedback ORM model.
 """
 
 from __future__ import annotations

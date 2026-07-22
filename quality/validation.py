@@ -36,6 +36,10 @@ from quality.integrity_checks import (
 )
 from quality.metrics import get_table_counts
 from quality.report import export_csv, export_json
+from quality.validate_promotion_salary import (
+    find_promotions_outside_new_role_salary_band,
+    find_promotions_with_invalid_role_salary_band,
+)
 
 
 @dataclass
@@ -179,6 +183,28 @@ def run_validations() -> None:
                     find_negative_payroll_records(session),
                     "CRITICAL",
                 ),
+                # -------------------------------------------------------
+                # Promotion salary validations.
+                #
+                # A promoted employee's new salary must remain within
+                # the configured salary band for the destination role.
+                # -------------------------------------------------------
+                validate_empty_result(
+                    "No promotion salaries outside new role salary band",
+                    find_promotions_outside_new_role_salary_band(session),
+                    "CRITICAL",
+                ),
+                # -------------------------------------------------------
+                # Reference-data safeguard.
+                #
+                # A destination role must not have a salary-band minimum
+                # that exceeds its salary-band maximum.
+                # -------------------------------------------------------
+                validate_empty_result(
+                    "No promotions with invalid new role salary band",
+                    find_promotions_with_invalid_role_salary_band(session),
+                    "CRITICAL",
+                ),
             ]
         )
 
@@ -189,11 +215,14 @@ def run_validations() -> None:
         for result in results:
             log_result(result)
 
+        # Existing reporting behaviour is preserved. The two new checks
+        # are automatically written to the same CSV and JSON reports.
         export_csv(results)
         export_json(results)
 
         failed_critical = [
-            result for result in results
+            result
+            for result in results
             if not result.passed and result.severity == "CRITICAL"
         ]
 
