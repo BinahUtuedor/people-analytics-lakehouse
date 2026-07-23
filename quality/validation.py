@@ -52,6 +52,14 @@ from quality.validate_promotion_salary import (
     find_promotions_outside_new_role_salary_band,
     find_promotions_with_invalid_role_salary_band,
 )
+from quality.workforce_lifecycle_checks import (
+    find_employee_promotion_state_mismatches,
+    find_employee_transfer_state_mismatches,
+    find_filled_recruitments_without_employee,
+    find_open_recruitments_with_employee,
+    find_recruitment_headcount_mismatch,
+    find_recruitment_hire_date_mismatches,
+)
 
 
 @dataclass
@@ -376,6 +384,51 @@ def run_validations() -> None:
                 validate_empty_result(
                     "No promotions with invalid new role salary band",
                     find_promotions_with_invalid_role_salary_band(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                # ---------------------------------------------------
+                # Workforce lifecycle / current-state validations.
+                # ---------------------------------------------------
+                validate_empty_result(
+                    "No filled recruitment records without successful employees",
+                    find_filled_recruitments_without_employee(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No open recruitment records linked to employees",
+                    find_open_recruitments_with_employee(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "Successful recruits match recruitment hire dates",
+                    find_recruitment_hire_date_mismatches(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "Employee count equals initial workforce plus filled recruitments",
+                    find_recruitment_headcount_mismatch(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "Employee current role and salary match latest promotion",
+                    find_employee_promotion_state_mismatches(
+                        session
+                    ),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "Employee current department location and manager match latest transfer",
+                    find_employee_transfer_state_mismatches(
                         session
                     ),
                     "CRITICAL",

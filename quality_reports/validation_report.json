@@ -2,25 +2,25 @@
     {
         "check_name": "Employees count greater than zero",
         "passed": true,
-        "record_count": 2000,
+        "record_count": 2121,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Attendance count greater than zero",
         "passed": true,
-        "record_count": 757764,
+        "record_count": 796754,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Payroll count greater than zero",
         "passed": true,
-        "record_count": 36705,
+        "record_count": 38607,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Employee exits count greater than zero",
         "passed": true,
-        "record_count": 36,
+        "record_count": 49,
         "severity": "CRITICAL"
     },
     {
@@ -151,6 +151,42 @@
     },
     {
         "check_name": "No promotions with invalid new role salary band",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No filled recruitment records without successful employees",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No open recruitment records linked to employees",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Successful recruits match recruitment hire dates",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Employee count equals initial workforce plus filled recruitments",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Employee current role and salary match latest promotion",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Employee current department location and manager match latest transfer",
         "passed": true,
         "record_count": 0,
         "severity": "CRITICAL"

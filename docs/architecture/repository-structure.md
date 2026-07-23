@@ -123,7 +123,6 @@ people-analytics-lakehouse-platform/
 │   ├── base.py
 │   ├── connection.py
 │   ├── create_schema.py
-│   ├── create_employee_exit_table.py
 │   └── seed.py
 │
 ├── integrations/                       # Inbound external APIs
@@ -233,6 +232,7 @@ people-analytics-lakehouse-platform/
 │   ├── metrics.pyquality
 │   ├── report.py
 │   ├── validate_promotion_salary.py
+│   ├── workforce_lifecycle_checks.py
 │   ├── metadata_checks.py
 │   ├── reference_data_checks.py
 │   └── business_rules.py

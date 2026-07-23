@@ -228,11 +228,69 @@ def run_simulation(
         )
 
         # ---------------------------------------------------------------
-        # Existing operational generation steps.
+        # Recruitment must run before employee-level transactional facts.
         #
-        # Employee exits are deliberately handled separately below
-        # because they update the Employee master state and determine
-        # which employees are eligible for exit interviews.
+        # Filled vacancies now create real Employee master records.
+        # Those employees must therefore be committed and added to the
+        # working population before attendance, payroll, leave, training,
+        # reviews and other downstream records are generated.
+        # ---------------------------------------------------------------
+
+        if table_is_empty(
+            session,
+            Recruitment,
+        ):
+            (
+                recruitment_records,
+                recruited_employees,
+            ) = generate_recruitment(
+                departments=departments,
+                job_roles=job_roles,
+                locations=locations,
+                employees=employees,
+            )
+
+            # Add both sides explicitly. Recruitment.successful_employee
+            # links each filled campaign to the Employee created from it.
+            session.add_all(
+                recruited_employees
+            )
+
+            session.add_all(
+                recruitment_records
+            )
+
+            session.commit()
+
+            logger.info(
+                f"Generated {len(recruitment_records)} recruitment records."
+            )
+
+            logger.info(
+                f"Created {len(recruited_employees)} employees from filled vacancies."
+            )
+
+        else:
+            logger.warning(
+                "Recruitment already exists. Skipping."
+            )
+
+        # Refresh the authoritative employee population so all recruited
+        # hires participate in subsequent simulation steps.
+        employees = (
+            session.query(Employee)
+            .all()
+        )
+
+        logger.info(
+            f"Employee population after recruitment: {len(employees)}"
+        )
+
+        # ---------------------------------------------------------------
+        # Operational generation steps.
+        #
+        # Promotions and transfers update Employee current state while
+        # retaining their before/after event history.
         # ---------------------------------------------------------------
 
         generation_steps = [
@@ -286,15 +344,6 @@ def run_simulation(
                     employees,
                     departments,
                     locations,
-                ),
-            ),
-            (
-                "recruitment",
-                Recruitment,
-                lambda: generate_recruitment(
-                    departments,
-                    job_roles,
-                    employees,
                 ),
             ),
             (
