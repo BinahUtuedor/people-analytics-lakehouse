@@ -1,21 +1,8 @@
 """
 Performance review simulation module.
 
-This module generates annual employee performance reviews.
-
-The qualitative review fields:
-- strengths
-- development_areas
-
-are generated dynamically based on the employee's simulated performance
-scores instead of using the same text for every employee.
-
-This creates realistic data for downstream:
-- performance analytics;
-- promotion prediction;
-- retention analysis;
-- NLP and sentiment analysis;
-- manager effectiveness analysis.
+Performance reviews are generated only when the review date falls
+inside the employee's employment window.
 """
 
 from __future__ import annotations
@@ -26,25 +13,14 @@ from decimal import Decimal
 
 from config.constants import DEFAULT_RANDOM_SEED
 from database.models import Employee, PerformanceReview
+from simulator.effective_dates import date_within_employment_window
 
-
-# -------------------------------------------------------------------
-# Random seed
-#
-# Ensures reproducible simulation results when using the same seed.
-# -------------------------------------------------------------------
 
 random.seed(DEFAULT_RANDOM_SEED)
 
 
 def score() -> Decimal:
-    """
-    Generate a performance score between 2.50 and 5.00.
-
-    Returns:
-        Decimal:
-            Simulated performance score rounded to two decimal places.
-    """
+    """Generate a performance score between 2.50 and 5.00."""
 
     return Decimal(
         str(
@@ -65,62 +41,20 @@ def calculate_overall_rating(
     teamwork_score: Decimal,
     leadership_score: Decimal | None,
 ) -> Decimal:
-    """
-    Calculate the employee's overall performance rating from the
-    individual performance dimensions.
+    """Calculate overall rating from applicable component ratings."""
 
-    For non-manager employees, the overall rating is calculated from:
-
-        - productivity;
-        - quality;
-        - teamwork.
-
-    For managers, leadership is also included in the calculation:
-
-        - productivity;
-        - quality;
-        - teamwork;
-        - leadership.
-
-    Using the average of the underlying performance dimensions ensures
-    that the overall rating remains consistent with the employee's
-    detailed performance scores.
-
-    Args:
-        productivity_score:
-            Employee productivity rating.
-
-        quality_score:
-            Employee quality rating.
-
-        teamwork_score:
-            Employee teamwork rating.
-
-        leadership_score:
-            Employee leadership rating.
-            This is only populated for managers.
-
-    Returns:
-        Decimal:
-            Overall performance rating rounded to two decimal places.
-    """
-
-    # Start with the performance dimensions that apply to every employee.
     ratings = [
         productivity_score,
         quality_score,
         teamwork_score,
     ]
 
-    # Leadership only contributes to the overall score when the employee
-    # is a manager and therefore has a leadership rating.
     if leadership_score is not None:
         ratings.append(
             leadership_score
         )
 
-    # Calculate the arithmetic mean of all applicable performance ratings.
-    overall_rating = (
+    return (
         sum(
             ratings,
             Decimal("0.00"),
@@ -128,20 +62,10 @@ def calculate_overall_rating(
         / Decimal(
             len(ratings)
         )
-    )
-
-    # Maintain the existing two-decimal-place rating format.
-    return overall_rating.quantize(
+    ).quantize(
         Decimal("0.01")
     )
 
-
-# -------------------------------------------------------------------
-# Qualitative review content
-#
-# These feedback options are mapped to the employee's strongest and
-# weakest performance dimensions.
-# -------------------------------------------------------------------
 
 STRENGTH_OPTIONS = {
     "productivity": [
@@ -150,28 +74,24 @@ STRENGTH_OPTIONS = {
         "Maintains a high level of output while responding well to changing priorities.",
         "Shows excellent focus and consistently delivers against key objectives.",
     ],
-
     "quality": [
         "Produces consistently high-quality work with strong attention to detail.",
         "Demonstrates a strong commitment to accuracy and professional standards.",
         "Maintains high quality standards and identifies issues before they affect delivery.",
         "Produces reliable outputs that require minimal correction or rework.",
     ],
-
     "teamwork": [
         "Works collaboratively with colleagues and contributes positively to team objectives.",
         "Builds strong working relationships and supports colleagues effectively.",
         "Demonstrates a collaborative approach and contributes to a positive team environment.",
         "Communicates well with colleagues and actively supports shared priorities.",
     ],
-
     "leadership": [
         "Demonstrates effective leadership and provides clear direction to colleagues.",
         "Supports team development and creates a positive environment for delivery.",
         "Demonstrates strong judgement and takes ownership of team outcomes.",
         "Provides effective leadership and contributes positively to wider organisational priorities.",
     ],
-
     "balanced": [
         "Consistently contributes to team objectives and demonstrates reliable performance across key areas.",
         "Demonstrates well-rounded performance and contributes positively across multiple responsibilities.",
@@ -188,28 +108,24 @@ DEVELOPMENT_OPTIONS = {
         "Develop more structured approaches to workload planning and prioritisation.",
         "Continue improving delivery speed when working on complex or competing priorities.",
     ],
-
     "quality": [
         "Continue strengthening attention to detail and applying consistent quality checks.",
         "Focus on improving accuracy and reducing the need for rework.",
         "Develop a more structured quality-assurance approach before completing deliverables.",
         "Continue improving consistency and accuracy across complex pieces of work.",
     ],
-
     "teamwork": [
         "Continue developing collaboration skills and proactively engage colleagues across the wider team.",
         "Build confidence in communicating ideas and contributing during team discussions.",
         "Develop stronger cross-functional relationships and increase knowledge sharing.",
         "Continue strengthening communication and stakeholder engagement skills.",
     ],
-
     "leadership": [
         "Continue developing strategic leadership capability and confidence when influencing others.",
         "Focus on strengthening delegation, coaching and team-development skills.",
         "Develop greater confidence when making decisions and providing direction to colleagues.",
         "Continue building strategic awareness and leadership capability across wider organisational priorities.",
     ],
-
     "strategic": [
         "Continue developing strategic and technical capability to support future progression.",
         "Build greater understanding of wider organisational priorities and long-term business objectives.",
@@ -225,39 +141,7 @@ def generate_review_context(
     teamwork_score: Decimal,
     leadership_score: Decimal | None,
 ) -> tuple[str, str]:
-    """
-    Generate context-sensitive strengths and development areas.
-
-    The strongest performance dimension determines the employee's
-    main strength.
-
-    The weakest performance dimension determines the primary
-    development area.
-
-    Args:
-        productivity_score:
-            Employee productivity rating.
-
-        quality_score:
-            Employee quality rating.
-
-        teamwork_score:
-            Employee teamwork rating.
-
-        leadership_score:
-            Employee leadership rating.
-            This is only populated for managers.
-
-    Returns:
-        tuple[str, str]:
-            Generated strengths and development areas.
-    """
-
-    # -------------------------------------------------------------------
-    # Build score dictionary.
-    #
-    # Leadership is only included when the employee is a manager.
-    # -------------------------------------------------------------------
+    """Generate strengths and development areas from component ratings."""
 
     scores = {
         "productivity": productivity_score,
@@ -267,10 +151,6 @@ def generate_review_context(
 
     if leadership_score is not None:
         scores["leadership"] = leadership_score
-
-    # -------------------------------------------------------------------
-    # Identify strongest and weakest dimensions.
-    # -------------------------------------------------------------------
 
     strongest_dimension = max(
         scores,
@@ -282,26 +162,21 @@ def generate_review_context(
         key=scores.get,
     )
 
-    # -------------------------------------------------------------------
-    # If all scores are very close together, treat performance as
-    # well balanced rather than highlighting one specific strength.
-    # -------------------------------------------------------------------
-
     score_values = list(
         scores.values()
     )
 
-    score_range = max(
-        score_values
-    ) - min(
-        score_values
+    score_range = (
+        max(score_values)
+        - min(score_values)
     )
 
     if score_range <= Decimal("0.30"):
         strengths = random.choice(
-            STRENGTH_OPTIONS["balanced"]
+            STRENGTH_OPTIONS[
+                "balanced"
+            ]
         )
-
     else:
         strengths = random.choice(
             STRENGTH_OPTIONS[
@@ -309,18 +184,15 @@ def generate_review_context(
             ]
         )
 
-    # -------------------------------------------------------------------
-    # Generate development area.
-    #
-    # If the weakest score is still relatively high, provide a broader
-    # strategic development recommendation instead of negative feedback.
-    # -------------------------------------------------------------------
-
-    if scores[weakest_dimension] >= Decimal("4.00"):
+    if (
+        scores[weakest_dimension]
+        >= Decimal("4.00")
+    ):
         development_areas = random.choice(
-            DEVELOPMENT_OPTIONS["strategic"]
+            DEVELOPMENT_OPTIONS[
+                "strategic"
+            ]
         )
-
     else:
         development_areas = random.choice(
             DEVELOPMENT_OPTIONS[
@@ -338,76 +210,43 @@ def generate_performance_reviews(
     employees: list[Employee],
 ) -> list[PerformanceReview]:
     """
-    Generate three years of annual performance reviews.
+    Generate annual reviews only while the employee is employed.
 
-    One review is generated for each employee for:
-    - the current year;
-    - the previous year;
-    - two years before the current year.
-
-    Qualitative review feedback is dynamically generated from the
-    employee's performance scores.
-
-    Args:
-        employees:
-            List of Employee ORM objects.
-
-    Returns:
-        list[PerformanceReview]:
-            Generated performance review records.
+    A review object is never constructed for a date before hire or
+    after termination, eliminating transient SQLAlchemy relationship
+    warnings caused by post-generation filtering.
     """
 
-    # Container for all generated performance reviews.
     records: list[PerformanceReview] = []
-
-    # Determine the current calendar year.
     current_year = date.today().year
 
-    # -------------------------------------------------------------------
-    # Generate performance reviews for every employee.
-    # -------------------------------------------------------------------
-
     for employee in employees:
-
-        # Generate one review per year across a three-year period.
         for year in range(
             current_year - 2,
             current_year + 1,
         ):
+            review_date = date(
+                year,
+                12,
+                15,
+            )
 
-            # -----------------------------------------------------------
-            # Generate individual performance metrics first.
-            #
-            # These scores are reused when generating qualitative
-            # strengths, development areas and the overall rating.
-            # -----------------------------------------------------------
+            # Effective-date check happens BEFORE ORM construction.
+            if not date_within_employment_window(
+                employee,
+                review_date,
+            ):
+                continue
 
             productivity_score = score()
-
             quality_score = score()
-
             teamwork_score = score()
 
-            # Leadership score only applies to employees identified
-            # as managers.
             leadership_score = (
                 score()
                 if employee.is_manager
                 else None
             )
-
-            # -----------------------------------------------------------
-            # Calculate overall performance from the individual ratings.
-            #
-            # Non-managers:
-            # productivity + quality + teamwork / 3
-            #
-            # Managers:
-            # productivity + quality + teamwork + leadership / 4
-            #
-            # This ensures that the overall result accurately
-            # reflects the employee's underlying performance ratings.
-            # -----------------------------------------------------------
 
             overall = calculate_overall_rating(
                 productivity_score=productivity_score,
@@ -416,90 +255,42 @@ def generate_performance_reviews(
                 leadership_score=leadership_score,
             )
 
-            # -----------------------------------------------------------
-            # Generate context-sensitive qualitative review feedback.
-            # -----------------------------------------------------------
-
-            strengths, development_areas = (
-                generate_review_context(
-                    productivity_score=productivity_score,
-                    quality_score=quality_score,
-                    teamwork_score=teamwork_score,
-                    leadership_score=leadership_score,
-                )
-            )
-
-            # -----------------------------------------------------------
-            # Create PerformanceReview ORM object.
-            # -----------------------------------------------------------
-
-            performance_review = PerformanceReview(
-
-                # Employee being reviewed.
-                employee=employee,
-
-                # Employee's manager acts as reviewer.
-                #
-                # The top-level employee may have reviewer=None,
-                # which is expected if the ORM allows nullable reviewer.
-                reviewer=employee.manager,
-
-                # Annual review date.
-                review_date=date(
-                    year,
-                    12,
-                    15,
-                ),
-
-                # Review period stored as calendar year.
-                review_period=str(
-                    year
-                ),
-
-                # Overall employee performance rating calculated from
-                # the applicable underlying performance dimensions.
-                overall_rating=overall,
-
-                # Individual performance dimensions.
+            (
+                strengths,
+                development_areas,
+            ) = generate_review_context(
                 productivity_score=productivity_score,
                 quality_score=quality_score,
                 teamwork_score=teamwork_score,
                 leadership_score=leadership_score,
-
-                # Dynamically generated qualitative feedback.
-                strengths=strengths,
-
-                # Dynamically generated development recommendation.
-                development_areas=development_areas,
-
-                # Employees with an overall rating of 4.50 or above
-                # are recommended for promotion.
-                promotion_recommended=(
-                    overall
-                    >= Decimal(
-                        "4.50"
-                    )
-                ),
-
-                # Simulated employee retention risk.
-                #
-                # "Low" appears twice to produce a higher proportion
-                # of low-risk employees.
-                retention_risk=random.choice(
-                    [
-                        "Low",
-                        "Low",
-                        "Medium",
-                        "High",
-                    ]
-                ),
             )
 
-            # Add generated review to output collection.
             records.append(
-                performance_review
+                PerformanceReview(
+                    employee=employee,
+                    reviewer=employee.manager,
+                    review_date=review_date,
+                    review_period=str(year),
+                    overall_rating=overall,
+                    productivity_score=productivity_score,
+                    quality_score=quality_score,
+                    teamwork_score=teamwork_score,
+                    leadership_score=leadership_score,
+                    strengths=strengths,
+                    development_areas=development_areas,
+                    promotion_recommended=(
+                        overall
+                        >= Decimal("4.50")
+                    ),
+                    retention_risk=random.choice(
+                        [
+                            "Low",
+                            "Low",
+                            "Medium",
+                            "High",
+                        ]
+                    ),
+                )
             )
 
-    # Return all generated PerformanceReview ORM objects
-    # to the simulation orchestrator.
     return records

@@ -1,8 +1,8 @@
 check_name,passed,record_count,severity
 Employees count greater than zero,True,2121,CRITICAL
-Attendance count greater than zero,True,796754,CRITICAL
-Payroll count greater than zero,True,38607,CRITICAL
-Employee exits count greater than zero,True,49,CRITICAL
+Attendance count greater than zero,True,790532,CRITICAL
+Payroll count greater than zero,True,38328,CRITICAL
+Employee exits count greater than zero,True,42,CRITICAL
 Exactly one employee has no manager,True,1,CRITICAL
 No non-manager employees without manager,True,0,CRITICAL
 No duplicate employee numbers,True,0,CRITICAL
@@ -31,3 +31,12 @@ Successful recruits match recruitment hire dates,True,0,CRITICAL
 Employee count equals initial workforce plus filled recruitments,True,0,CRITICAL
 Employee current role and salary match latest promotion,True,0,CRITICAL
 Employee current department location and manager match latest transfer,True,0,CRITICAL
+No attendance outside employee employment window,True,0,CRITICAL
+No payroll outside employee employment window,True,0,CRITICAL
+No leave outside employee employment window,True,0,CRITICAL
+No training outside employee employment window,True,0,CRITICAL
+No performance reviews outside employee employment window,True,0,CRITICAL
+No surveys outside employee employment window,True,0,CRITICAL
+No manager feedback outside employee employment window,True,0,CRITICAL
+No promotions outside employee employment window,True,0,CRITICAL
+No transfers outside employee employment window,True,0,CRITICAL

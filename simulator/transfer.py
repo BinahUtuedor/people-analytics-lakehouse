@@ -177,8 +177,7 @@ def generate_transfers(
         employee
         for employee in employees
         if (
-            employee.is_active
-            and not employee.is_manager
+            not employee.is_manager
             and random.random() < 0.05
         )
     ]
@@ -226,7 +225,13 @@ def generate_transfers(
             + timedelta(days=90)
         )
 
-        if earliest_date > today:
+        employment_end = (
+            employee.termination_date
+            if employee.termination_date is not None
+            else today
+        )
+
+        if earliest_date > employment_end:
             continue
 
         old_department_id = (
@@ -249,7 +254,7 @@ def generate_transfers(
                     min(
                         900,
                         (
-                            today
+                            employment_end
                             - employee.hire_date
                         ).days,
                     ),

@@ -8,19 +8,19 @@
     {
         "check_name": "Attendance count greater than zero",
         "passed": true,
-        "record_count": 796754,
+        "record_count": 790532,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Payroll count greater than zero",
         "passed": true,
-        "record_count": 38607,
+        "record_count": 38328,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Employee exits count greater than zero",
         "passed": true,
-        "record_count": 49,
+        "record_count": 42,
         "severity": "CRITICAL"
     },
     {
@@ -187,6 +187,60 @@
     },
     {
         "check_name": "Employee current department location and manager match latest transfer",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No attendance outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No payroll outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No leave outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No training outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No performance reviews outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No surveys outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No manager feedback outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No promotions outside employee employment window",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No transfers outside employee employment window",
         "passed": true,
         "record_count": 0,
         "severity": "CRITICAL"

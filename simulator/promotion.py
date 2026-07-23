@@ -303,8 +303,7 @@ def generate_promotions(
         employee
         for employee in employees
         if (
-            employee.is_active
-            and not employee.is_manager
+            not employee.is_manager
             and random.random() < 0.08
         )
     ]
@@ -340,21 +339,29 @@ def generate_promotions(
             + timedelta(days=180)
         )
 
-        if earliest_date > today:
+        employment_end = (
+            employee.termination_date
+            if employee.termination_date is not None
+            else today
+        )
+
+        if earliest_date > employment_end:
             continue
+
+        maximum_days = min(
+            900,
+            (
+                employment_end
+                - employee.hire_date
+            ).days,
+        )
 
         promotion_date = (
             employee.hire_date
             + timedelta(
                 days=random.randint(
                     180,
-                    min(
-                        900,
-                        (
-                            today
-                            - employee.hire_date
-                        ).days,
-                    ),
+                    maximum_days,
                 )
             )
         )

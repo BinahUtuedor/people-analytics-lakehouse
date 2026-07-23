@@ -287,6 +287,36 @@ def run_simulation(
         )
 
         # ---------------------------------------------------------------
+        # Establish termination dates before generating employee facts.
+        #
+        # This makes every downstream generator aware of the employee's
+        # complete employment window.
+        # ---------------------------------------------------------------
+
+        # ---------------------------------------------------------------
+        # Employee exits.
+        #
+        # This is now the only simulation step responsible for changing:
+        #
+        # - Employee.termination_date
+        # - Employee.employment_status
+        # - Employee.is_active
+        #
+        # The corresponding EmployeeExit record preserves the event.
+        # ---------------------------------------------------------------
+
+        exit_records = run_generation_step(
+            session=session,
+            name="employee exits",
+            model=EmployeeExit,
+            generator=lambda: (
+                generate_employee_exits(
+                    employees
+                )
+            ),
+        )
+
+        # ---------------------------------------------------------------
         # Operational generation steps.
         #
         # Promotions and transfers update Employee current state while
@@ -373,29 +403,6 @@ def run_simulation(
                 model=model,
                 generator=generator,
             )
-
-        # ---------------------------------------------------------------
-        # Employee exits.
-        #
-        # This is now the only simulation step responsible for changing:
-        #
-        # - Employee.termination_date
-        # - Employee.employment_status
-        # - Employee.is_active
-        #
-        # The corresponding EmployeeExit record preserves the event.
-        # ---------------------------------------------------------------
-
-        exit_records = run_generation_step(
-            session=session,
-            name="employee exits",
-            model=EmployeeExit,
-            generator=lambda: (
-                generate_employee_exits(
-                    employees
-                )
-            ),
-        )
 
         # ---------------------------------------------------------------
         # Exit interviews.

@@ -52,6 +52,17 @@ from quality.validate_promotion_salary import (
     find_promotions_outside_new_role_salary_band,
     find_promotions_with_invalid_role_salary_band,
 )
+from quality.effective_date_checks import (
+    find_attendance_outside_employment,
+    find_leave_outside_employment,
+    find_manager_feedback_outside_employment,
+    find_payroll_outside_employment,
+    find_performance_reviews_outside_employment,
+    find_promotions_outside_employment,
+    find_surveys_outside_employment,
+    find_training_outside_employment,
+    find_transfers_outside_employment,
+)
 from quality.workforce_lifecycle_checks import (
     find_employee_promotion_state_mismatches,
     find_employee_transfer_state_mismatches,
@@ -431,6 +442,54 @@ def run_validations() -> None:
                     find_employee_transfer_state_mismatches(
                         session
                     ),
+                    "CRITICAL",
+                ),
+                # ---------------------------------------------------
+                # Effective-date validations.
+                # ---------------------------------------------------
+                validate_empty_result(
+                    "No attendance outside employee employment window",
+                    find_attendance_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No payroll outside employee employment window",
+                    find_payroll_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No leave outside employee employment window",
+                    find_leave_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No training outside employee employment window",
+                    find_training_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No performance reviews outside employee employment window",
+                    find_performance_reviews_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No surveys outside employee employment window",
+                    find_surveys_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No manager feedback outside employee employment window",
+                    find_manager_feedback_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No promotions outside employee employment window",
+                    find_promotions_outside_employment(session),
+                    "CRITICAL",
+                ),
+                validate_empty_result(
+                    "No transfers outside employee employment window",
+                    find_transfers_outside_employment(session),
                     "CRITICAL",
                 ),
             ]
