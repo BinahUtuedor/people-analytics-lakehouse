@@ -11,8 +11,6 @@ For every generated transfer:
 - the employee cannot become their own manager;
 - transfer reasons are varied and aligned with the transfer context.
 
-The existing Transfer ORM structure and generate_transfers() function
-signature are preserved for compatibility with the wider application.
 """
 
 from __future__ import annotations
@@ -187,8 +185,6 @@ def determine_transfer_type() -> str:
     """
     Select the type of employee transfer.
 
-    The existing transfer-type values are retained so downstream
-    processes relying on these categories remain compatible.
     """
 
     return random.choice(
@@ -242,7 +238,7 @@ def generate_transfers(
     Generate employee transfer records.
 
     Approximately 5% of non-manager employees remain eligible for
-    transfer, preserving the behaviour of the original simulator.
+    transfer.
 
     Every generated transfer changes:
 
@@ -268,8 +264,8 @@ def generate_transfers(
     records = []
 
     # -------------------------------------------------------------------
-    # Preserve the existing approximate 5% transfer probability.
-    # Managers are excluded from the transfer population as before.
+    # Uses 5% transfer probability.
+    # Managers are excluded from the transfer population.
     # -------------------------------------------------------------------
 
     eligible = [
@@ -315,8 +311,8 @@ def generate_transfers(
         # ---------------------------------------------------------------
         # A valid transfer requires all three replacement values.
         #
-        # With your current project this should normally never trigger
-        # because you have multiple departments, locations and managers.
+        # With the current project this should normally never trigger
+        # because the project has multiple departments, locations and managers.
         # It nevertheless protects the simulator from producing an
         # invalid record if the reference data changes later.
         # ---------------------------------------------------------------
@@ -341,8 +337,6 @@ def generate_transfers(
 
         # ---------------------------------------------------------------
         # Create the Transfer ORM record.
-        #
-        # Existing model attributes are unchanged.
         # ---------------------------------------------------------------
 
         records.append(

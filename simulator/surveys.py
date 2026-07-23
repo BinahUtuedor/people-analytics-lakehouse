@@ -14,7 +14,7 @@ Examples of expected relationships:
 - manager support influences engagement and satisfaction;
 - wellbeing and work-life balance are strongly related;
 - career growth contributes to engagement and satisfaction;
-- individual dimensions still contain controlled random variation.
+- ontrolled random variation were added to individual dimensions.
 
 This produces more realistic synthetic survey data for downstream:
 - employee engagement analysis;
