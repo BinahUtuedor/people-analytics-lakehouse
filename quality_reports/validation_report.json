@@ -8,13 +8,19 @@
     {
         "check_name": "Attendance count greater than zero",
         "passed": true,
-        "record_count": 757489,
+        "record_count": 757764,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Payroll count greater than zero",
         "passed": true,
-        "record_count": 37626,
+        "record_count": 36705,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Employee exits count greater than zero",
+        "passed": true,
+        "record_count": 36,
         "severity": "CRITICAL"
     },
     {
@@ -72,6 +78,12 @@
         "severity": "CRITICAL"
     },
     {
+        "check_name": "No orphan employee exit records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
         "check_name": "No employees with negative salary",
         "passed": true,
         "record_count": 0,
@@ -84,6 +96,42 @@
         "severity": "CRITICAL"
     },
     {
+        "check_name": "No active employees with exit events",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No employee exit events before hire date",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Employee termination dates match exit event dates",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "Exited employees have terminated employment status",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No terminated employees without exit events",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No exit interviews without employee exit events",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
         "check_name": "No exit interviews for active employees",
         "passed": true,
         "record_count": 0,
@@ -91,6 +139,18 @@
     },
     {
         "check_name": "No negative payroll records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No promotion salaries outside new role salary band",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
+        "check_name": "No promotions with invalid new role salary band",
         "passed": true,
         "record_count": 0,
         "severity": "CRITICAL"

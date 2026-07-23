@@ -24,6 +24,11 @@ def create_schema() -> None:
 
     logger.info("Creating database schema...")
 
+    
+    logger.info(
+    f"Registered tables: {list(Base.metadata.tables.keys())}"
+    )
+
     Base.metadata.create_all(bind=engine)
 
     logger.info("Database schema created successfully.")

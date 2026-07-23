@@ -108,6 +108,7 @@ people-analytics-lakehouse-platform/
 │   │    ├── location.py
 │   │    ├── job_role.py
 │   │    ├── employee.py
+│   │    ├── employee_exit.py
 │   │    ├── attendance.py
 │   │    ├── payroll.py
 │   │    ├── leave.py
@@ -122,6 +123,7 @@ people-analytics-lakehouse-platform/
 │   ├── base.py
 │   ├── connection.py
 │   ├── create_schema.py
+│   ├── create_employee_exit_table.py
 │   └── seed.py
 │
 ├── integrations/                       # Inbound external APIs

@@ -1,7 +1,8 @@
 check_name,passed,record_count,severity
 Employees count greater than zero,True,2000,CRITICAL
-Attendance count greater than zero,True,757489,CRITICAL
-Payroll count greater than zero,True,37626,CRITICAL
+Attendance count greater than zero,True,757764,CRITICAL
+Payroll count greater than zero,True,36705,CRITICAL
+Employee exits count greater than zero,True,36,CRITICAL
 Exactly one employee has no manager,True,1,CRITICAL
 No non-manager employees without manager,True,0,CRITICAL
 No duplicate employee numbers,True,0,CRITICAL
@@ -11,7 +12,16 @@ No employees with missing job role,True,0,CRITICAL
 No employees with missing location,True,0,CRITICAL
 No orphan attendance records,True,0,CRITICAL
 No orphan payroll records,True,0,CRITICAL
+No orphan employee exit records,True,0,CRITICAL
 No employees with negative salary,True,0,CRITICAL
 No employees with termination before hire date,True,0,CRITICAL
+No active employees with exit events,True,0,CRITICAL
+No employee exit events before hire date,True,0,CRITICAL
+Employee termination dates match exit event dates,True,0,CRITICAL
+Exited employees have terminated employment status,True,0,CRITICAL
+No terminated employees without exit events,True,0,CRITICAL
+No exit interviews without employee exit events,True,0,CRITICAL
 No exit interviews for active employees,True,0,CRITICAL
 No negative payroll records,True,0,CRITICAL
+No promotion salaries outside new role salary band,True,0,CRITICAL
+No promotions with invalid new role salary band,True,0,CRITICAL

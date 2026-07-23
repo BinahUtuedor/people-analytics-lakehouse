@@ -5,6 +5,7 @@ Data quality metrics.
 from database.models import (
     Attendance,
     Employee,
+    EmployeeExit,
     EmployeeSurvey,
     ExitInterview,
     LeaveRequest,
@@ -19,6 +20,10 @@ from database.models import (
 
 
 def get_table_counts(session) -> dict[str, int]:
+    """
+    Return record counts for generated operational tables.
+    """
+
     return {
         "employees": session.query(Employee).count(),
         "attendance": session.query(Attendance).count(),
@@ -31,5 +36,6 @@ def get_table_counts(session) -> dict[str, int]:
         "recruitment": session.query(Recruitment).count(),
         "employee_surveys": session.query(EmployeeSurvey).count(),
         "manager_feedback": session.query(ManagerFeedback).count(),
+        "employee_exits": session.query(EmployeeExit).count(),
         "exit_interviews": session.query(ExitInterview).count(),
     }

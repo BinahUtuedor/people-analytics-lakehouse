@@ -1,26 +1,42 @@
 """
 Exit interview simulation module.
 
-Generates realistic exit interview records with qualitative content that
-aligns with each employee's reason for leaving.
+Generates realistic exit interview records for employees who already
+have an EmployeeExit event.
 
-The module:
-- Generates different interview text for different exit reasons.
-- Generates key themes aligned with the selected exit reason.
-- Aligns sentiment with the nature of the exit reason.
-- Prevents future termination dates.
-- Updates the employee record to Terminated.
-- Remains compatible with the existing ExitInterview ORM model.
+EmployeeExit is the authoritative source for:
+- who left;
+- the exit date;
+- the exit type;
+- the exit reason;
+- whether the exit was voluntary.
+
+This module no longer:
+- selects employees to leave;
+- generates a separate termination date;
+- changes Employee.is_active;
+- changes Employee.employment_status;
+- changes Employee.termination_date.
+
+Instead, it generates an ExitInterview for a selected proportion of
+existing EmployeeExit events.
+
+This separation keeps the operational lifecycle consistent:
+
+    Employee
+        ↓
+    EmployeeExit
+        ↓
+    ExitInterview
 """
 
 from __future__ import annotations
 
 import random
-from datetime import date, timedelta
 from decimal import Decimal
 
 from config.constants import DEFAULT_RANDOM_SEED
-from database.models import Employee, ExitInterview
+from database.models import EmployeeExit, ExitInterview
 
 
 # -------------------------------------------------------------------
@@ -31,52 +47,58 @@ random.seed(DEFAULT_RANDOM_SEED)
 
 
 # -------------------------------------------------------------------
+# Exit interview participation rate
+#
+# Not every employee who leaves completes an exit interview.
+#
+# Approximately 80% of exit events will therefore generate an
+# ExitInterview record.
+# -------------------------------------------------------------------
+
+EXIT_INTERVIEW_PARTICIPATION_RATE = 0.80
+
+
+# -------------------------------------------------------------------
 # Exit interview content configuration
 #
-# Each exit reason contains:
-# - possible themes
-# - possible interview statements
-# - realistic sentiment labels
-# - likely destination types
-#
-# One option from each list is selected for every generated interview.
+# Content is now keyed to EmployeeExit.exit_type so the interview
+# remains consistent with the authoritative exit event.
 # -------------------------------------------------------------------
 
 EXIT_INTERVIEW_CONTENT = {
-    "Career Progression": {
+    "Resignation": {
         "themes": [
-            "Career Progression;Promotion Opportunities;Professional Development",
-            "Career Growth;Advancement;Internal Mobility",
-            "Progression;Leadership Opportunities;Development",
+            "Career Progression;Development;External Opportunity",
+            "Compensation;Career Growth;Retention",
+            "Work-Life Balance;Career Development;Employee Experience",
+            "Personal Priorities;Career Change;Development",
         ],
         "texts": [
             (
-                "The employee enjoyed working with the team but felt there "
-                "were limited opportunities for progression into more senior roles."
+                "The employee described the departure as a voluntary decision "
+                "and reflected positively on many aspects of their experience, "
+                "while identifying opportunities for improved career progression."
             ),
             (
-                "The employee decided to leave after securing a position that "
-                "offered a clearer promotion pathway and greater responsibility."
+                "The employee accepted an external opportunity and highlighted "
+                "career development, recognition and future progression as important "
+                "factors in the decision to leave."
             ),
             (
-                "The employee valued the organisation but wanted faster career "
-                "progression and more opportunities to develop leadership experience."
+                "The employee valued colleagues and the working environment but "
+                "felt a change of role would better support longer-term career goals."
             ),
             (
-                "The employee felt the current role no longer provided sufficient "
-                "scope for professional growth and decided to pursue a more "
-                "challenging opportunity."
-            ),
-            (
-                "The employee appreciated the learning opportunities available "
-                "but believed career advancement within the current structure "
-                "was too limited."
+                "The employee described the resignation as a considered career "
+                "decision and provided constructive feedback on development, "
+                "workload and employee experience."
             ),
         ],
         "sentiments": [
-            "Neutral",
             "Positive",
             "Neutral",
+            "Neutral",
+            "Negative",
         ],
         "destinations": [
             "Competitor",
@@ -84,129 +106,6 @@ EXIT_INTERVIEW_CONTENT = {
             "Further Study",
             "Unknown",
         ],
-        "voluntary": True,
-    },
-
-    "Compensation": {
-        "themes": [
-            "Compensation;Pay;Market Competitiveness",
-            "Reward;Salary;Benefits",
-            "Pay Progression;Compensation;Recognition",
-        ],
-        "texts": [
-            (
-                "The employee enjoyed the role but felt salary progression had "
-                "not kept pace with increased responsibilities and external market rates."
-            ),
-            (
-                "The employee accepted an external opportunity offering a more "
-                "competitive salary and stronger overall benefits package."
-            ),
-            (
-                "The employee felt compensation progression was slower than "
-                "expected despite consistently strong performance."
-            ),
-            (
-                "The employee cited pay as the main reason for leaving and "
-                "believed comparable roles elsewhere offered better financial recognition."
-            ),
-            (
-                "The employee appreciated the working environment but felt the "
-                "total reward package did not adequately reflect their contribution."
-            ),
-        ],
-        "sentiments": [
-            "Negative",
-            "Neutral",
-            "Negative",
-        ],
-        "destinations": [
-            "Competitor",
-            "Different Industry",
-            "Unknown",
-        ],
-        "voluntary": True,
-    },
-
-    "Relocation": {
-        "themes": [
-            "Relocation;Geography;Personal Circumstances",
-            "Location;Commute;Mobility",
-            "Relocation;Family Commitments;Geographic Change",
-        ],
-        "texts": [
-            (
-                "The employee is relocating to another part of the country and "
-                "is therefore unable to continue in the current role."
-            ),
-            (
-                "The employee decided to leave because of a planned family "
-                "relocation that would make regular travel to the workplace impractical."
-            ),
-            (
-                "The employee valued the organisation but is moving overseas "
-                "and could not continue in the position under the current working arrangement."
-            ),
-            (
-                "The employee is leaving due to a change in personal circumstances "
-                "that requires relocation closer to family."
-            ),
-            (
-                "The employee cited geographic relocation as the primary reason "
-                "for leaving and reported no significant concerns with the organisation."
-            ),
-        ],
-        "sentiments": [
-            "Positive",
-            "Neutral",
-            "Positive",
-        ],
-        "destinations": [
-            "Different Industry",
-            "Unknown",
-        ],
-        "voluntary": True,
-    },
-
-    "Workload": {
-        "themes": [
-            "Workload;Burnout;Work-Life Balance",
-            "Resourcing;Work Pressure;Wellbeing",
-            "Burnout;Capacity;Employee Wellbeing",
-        ],
-        "texts": [
-            (
-                "The employee reported that sustained workload pressures had "
-                "negatively affected work-life balance and contributed to the decision to leave."
-            ),
-            (
-                "The employee valued colleagues but felt persistent staffing "
-                "pressures resulted in an unsustainable level of workload."
-            ),
-            (
-                "The employee described periods of high pressure and limited "
-                "capacity as key factors influencing the decision to seek another role."
-            ),
-            (
-                "The employee felt workload expectations had increased significantly "
-                "and that additional support or resourcing was required."
-            ),
-            (
-                "The employee cited burnout and difficulty maintaining a healthy "
-                "work-life balance as the main reasons for leaving."
-            ),
-        ],
-        "sentiments": [
-            "Negative",
-            "Negative",
-            "Neutral",
-        ],
-        "destinations": [
-            "Competitor",
-            "Different Industry",
-            "Unknown",
-        ],
-        "voluntary": True,
     },
 
     "Retirement": {
@@ -222,21 +121,13 @@ EXIT_INTERVIEW_CONTENT = {
                 "within the organisation."
             ),
             (
-                "The employee has chosen to retire and reported a positive "
-                "experience overall, highlighting strong relationships with colleagues."
-            ),
-            (
-                "The employee is leaving the workforce permanently following "
-                "retirement and is supporting knowledge transfer before departure."
-            ),
-            (
                 "The employee described retirement as a planned personal decision "
-                "and expressed satisfaction with their career in the organisation."
+                "and reported a positive overall experience."
             ),
             (
-                "The employee is retiring and highlighted teamwork, professional "
-                "development and long-term relationships as positive aspects of "
-                "their experience."
+                "The employee is leaving the workforce following retirement and "
+                "highlighted the importance of effective knowledge transfer and "
+                "succession planning."
             ),
         ],
         "sentiments": [
@@ -245,50 +136,111 @@ EXIT_INTERVIEW_CONTENT = {
             "Neutral",
         ],
         "destinations": [
-            "Unknown",
+            "Retirement",
         ],
-        "voluntary": True,
     },
 
-    "Personal Reasons": {
+    "End of Contract": {
         "themes": [
-            "Personal Circumstances;Family;Work-Life Balance",
-            "Personal Reasons;Wellbeing;Life Changes",
-            "Family Commitments;Personal Priorities;Flexibility",
+            "Contract Completion;Temporary Assignment;Transition",
+            "End of Contract;Project Completion;Workforce Planning",
+            "Contract End;Transition;Future Opportunities",
         ],
         "texts": [
             (
-                "The employee is leaving due to personal circumstances and "
-                "preferred not to provide further detail."
+                "The employee's fixed-term engagement concluded as planned and "
+                "the employee provided constructive feedback on the assignment "
+                "and working environment."
             ),
             (
-                "The employee cited changing family commitments and personal "
-                "priorities as the main reasons for leaving."
+                "The employee completed the agreed temporary assignment and "
+                "reported that the role provided useful experience and development."
             ),
             (
-                "The employee decided to step away from the role to focus on "
-                "personal responsibilities outside work."
+                "The contract ended following completion of the planned work, "
+                "with the employee highlighting both positive experiences and "
+                "areas where onboarding and transition could be improved."
+            ),
+        ],
+        "sentiments": [
+            "Positive",
+            "Neutral",
+            "Neutral",
+        ],
+        "destinations": [
+            "Competitor",
+            "Different Industry",
+            "Further Study",
+            "Unknown",
+        ],
+    },
+
+    "Redundancy": {
+        "themes": [
+            "Redundancy;Restructuring;Organisational Change",
+            "Role Removal;Workforce Change;Communication",
+            "Restructuring;Employee Support;Transition",
+        ],
+        "texts": [
+            (
+                "The employee's role was affected by organisational restructuring "
+                "and the discussion focused on communication, transition support "
+                "and the impact of the change."
             ),
             (
-                "The employee reported that a change in personal circumstances "
-                "made it difficult to continue in the current position."
+                "The employee reflected on the redundancy process and highlighted "
+                "the importance of clear communication and support during periods "
+                "of organisational change."
             ),
             (
-                "The employee is leaving for personal reasons and expressed "
-                "appreciation for the support received from colleagues and management."
+                "The role was removed following business changes, and the employee "
+                "provided feedback on consultation, transition arrangements and "
+                "their overall experience."
             ),
         ],
         "sentiments": [
             "Neutral",
-            "Positive",
-            "Neutral",
+            "Negative",
+            "Negative",
         ],
         "destinations": [
-            "Further Study",
+            "Competitor",
             "Different Industry",
             "Unknown",
         ],
-        "voluntary": True,
+    },
+
+    "Dismissal": {
+        "themes": [
+            "Performance;Conduct;Employment Termination",
+            "Performance Management;Expectations;Support",
+            "Conduct;Management Process;Employee Relations",
+        ],
+        "texts": [
+            (
+                "The employment relationship ended following a formal process, "
+                "and the discussion captured the employee's perspective on "
+                "expectations, support and communication."
+            ),
+            (
+                "The employee provided feedback on the management process leading "
+                "to termination and identified areas where expectations and "
+                "communication could have been clearer."
+            ),
+            (
+                "The interview recorded the employee's perspective on the events "
+                "leading to dismissal and the support provided during the formal process."
+            ),
+        ],
+        "sentiments": [
+            "Negative",
+            "Negative",
+            "Neutral",
+        ],
+        "destinations": [
+            "Different Industry",
+            "Unknown",
+        ],
     },
 }
 
@@ -297,10 +249,7 @@ def generate_sentiment_score(
     sentiment_label: str,
 ) -> Decimal:
     """
-    Generate a sentiment score aligned with the sentiment label.
-
-    The score ranges are deliberately separated so that downstream
-    analytics can interpret them consistently.
+    Generate a sentiment score aligned with the selected label.
 
     Positive:
         0.65 to 0.95
@@ -313,13 +262,22 @@ def generate_sentiment_score(
     """
 
     if sentiment_label == "Positive":
-        score = random.uniform(0.65, 0.95)
+        score = random.uniform(
+            0.65,
+            0.95,
+        )
 
     elif sentiment_label == "Negative":
-        score = random.uniform(0.10, 0.40)
+        score = random.uniform(
+            0.10,
+            0.40,
+        )
 
     else:
-        score = random.uniform(0.40, 0.65)
+        score = random.uniform(
+            0.40,
+            0.65,
+        )
 
     return Decimal(
         str(
@@ -331,202 +289,222 @@ def generate_sentiment_score(
     )
 
 
+def generate_satisfaction_at_exit(
+    sentiment_label: str,
+) -> Decimal:
+    """
+    Generate satisfaction at exit consistent with interview sentiment.
+    """
+
+    if sentiment_label == "Positive":
+        value = random.uniform(
+            3.5,
+            5.0,
+        )
+
+    elif sentiment_label == "Negative":
+        value = random.uniform(
+            1.5,
+            3.0,
+        )
+
+    else:
+        value = random.uniform(
+            2.5,
+            4.0,
+        )
+
+    return Decimal(
+        str(
+            round(
+                value,
+                2,
+            )
+        )
+    )
+
+
+def generate_likelihood_to_recommend(
+    sentiment_label: str,
+) -> Decimal:
+    """
+    Generate recommendation likelihood consistent with sentiment.
+    """
+
+    if sentiment_label == "Positive":
+        value = random.uniform(
+            3.5,
+            5.0,
+        )
+
+    elif sentiment_label == "Negative":
+        value = random.uniform(
+            1.0,
+            3.0,
+        )
+
+    else:
+        value = random.uniform(
+            2.5,
+            4.0,
+        )
+
+    return Decimal(
+        str(
+            round(
+                value,
+                2,
+            )
+        )
+    )
+
+
 def generate_exit_interviews(
-    employees: list[Employee],
+    employee_exits: list[EmployeeExit],
 ) -> list[ExitInterview]:
     """
-    Generate realistic exit interview records.
+    Generate exit interviews from existing EmployeeExit events.
 
-    Only employees who:
-    - are not managers;
-    - have worked for at least 180 days; and
-    - meet the simulated 4% attrition probability
+    EmployeeExit is authoritative. Therefore:
 
-    are selected as leavers.
+    - EmployeeExit.employee determines who left.
+    - EmployeeExit.exit_date becomes ExitInterview.termination_date.
+    - EmployeeExit.exit_reason becomes ExitInterview.exit_reason.
+    - EmployeeExit.voluntary_flag becomes ExitInterview.voluntary_exit.
+    - EmployeeExit.exit_type determines the interview content family.
 
-    The function returns SQLAlchemy ExitInterview objects and updates
-    the corresponding Employee objects to Terminated status.
+    Not every leaver participates in an exit interview. Approximately
+    80% of exit events generate an interview.
+
+    Args:
+        employee_exits:
+            Existing EmployeeExit ORM objects.
+
+    Returns:
+        list[ExitInterview]:
+            Generated exit interview records.
     """
 
     records: list[ExitInterview] = []
 
-    # -------------------------------------------------------------------
-    # Select eligible leavers
-    #
-    # Employees must have at least 180 days of service so that a valid
-    # historical termination date can always be generated.
-    # -------------------------------------------------------------------
+    for exit_event in employee_exits:
 
-    leavers = [
-        employee
-        for employee in employees
-        if (
-            not employee.is_manager
-            and (date.today() - employee.hire_date).days >= 180
-            and random.random() < 0.04
-        )
-    ]
-
-    # -------------------------------------------------------------------
-    # Generate one exit interview per selected employee
-    # -------------------------------------------------------------------
-
-    for employee in leavers:
-
-        # Calculate how long the employee has worked up to today.
-        days_employed = (
-            date.today() - employee.hire_date
-        ).days
-
-        # Generate a termination date:
+        # ---------------------------------------------------------------
+        # Exit interview participation.
         #
-        # - at least 180 days after hire;
-        # - no more than 1,000 days after hire;
-        # - never later than today's date.
-        termination_date = (
-            employee.hire_date
-            + timedelta(
-                days=random.randint(
-                    180,
-                    min(
-                        1000,
-                        days_employed,
-                    ),
-                )
+        # The actual exit already happened regardless of whether the
+        # employee chooses to participate in an interview.
+        # ---------------------------------------------------------------
+
+        if (
+            random.random()
+            >= EXIT_INTERVIEW_PARTICIPATION_RATE
+        ):
+            continue
+
+        # ---------------------------------------------------------------
+        # Resolve interview content from the authoritative exit type.
+        # ---------------------------------------------------------------
+
+        content = EXIT_INTERVIEW_CONTENT.get(
+            exit_event.exit_type
+        )
+
+        # A newly introduced exit type should fail explicitly rather
+        # than silently generating unrelated interview content.
+        if content is None:
+            raise ValueError(
+                "Unsupported EmployeeExit exit_type "
+                f"'{exit_event.exit_type}'. "
+                "Add matching content to EXIT_INTERVIEW_CONTENT."
             )
-        )
 
-        # -------------------------------------------------------------------
-        # Select an exit reason
-        # -------------------------------------------------------------------
-
-        exit_reason = random.choice(
-            list(
-                EXIT_INTERVIEW_CONTENT.keys()
-            )
-        )
-
-        # Retrieve the configuration associated with that exit reason.
-        content = EXIT_INTERVIEW_CONTENT[
-            exit_reason
-        ]
-
-        # -------------------------------------------------------------------
-        # Generate qualitative interview content
-        # -------------------------------------------------------------------
-
-        # Select interview text aligned with the reason for leaving.
-        interview_text = random.choice(
-            content["texts"]
-        )
-
-        # Select themes aligned with the same exit reason.
-        key_themes = random.choice(
-            content["themes"]
-        )
-
-        # Select an appropriate sentiment.
         sentiment_label = random.choice(
-            content["sentiments"]
+            content[
+                "sentiments"
+            ]
         )
 
-        # Select a realistic destination type.
+        interview_text = random.choice(
+            content[
+                "texts"
+            ]
+        )
+
+        key_themes = random.choice(
+            content[
+                "themes"
+            ]
+        )
+
         destination_type = random.choice(
-            content["destinations"]
+            content[
+                "destinations"
+            ]
         )
 
-        # Generate sentiment score based on sentiment label.
-        sentiment_score = generate_sentiment_score(
-            sentiment_label
-        )
-
-        # -------------------------------------------------------------------
-        # Create ExitInterview ORM object
-        # -------------------------------------------------------------------
-
-        exit_interview = ExitInterview(
-
-            # Relationship to Employee.
-            employee=employee,
-
-            # Employment termination date.
-            termination_date=termination_date,
-
-            # Primary reason for leaving.
-            exit_reason=exit_reason,
-
-            # Currently derived from the exit-reason configuration.
-            #
-            # When exit reasons are fully sourced from:
-            #
-            # reference_data/exit_reasons.yml
-            #
-            # this value can be loaded directly from YAML.
-            voluntary_exit=content["voluntary"],
-
-            # Likely destination following departure.
-            destination_type=destination_type,
-
-            # Overall satisfaction score at departure.
-            satisfaction_at_exit=Decimal(
-                str(
-                    round(
-                        random.uniform(
-                            1.5,
-                            5.0,
-                        ),
-                        2,
-                    )
-                )
-            ),
-
-            # Likelihood that the employee would recommend
-            # the organisation to others.
-            likelihood_to_recommend=Decimal(
-                str(
-                    round(
-                        random.uniform(
-                            1.0,
-                            5.0,
-                        ),
-                        2,
-                    )
-                )
-            ),
-
-            # Qualitative exit interview response.
-            interview_text=interview_text,
-
-            # Semi-structured themes used later for NLP
-            # and People Analytics.
-            key_themes=key_themes,
-
-            # Sentiment classification.
-            sentiment_label=sentiment_label,
-
-            # Numeric sentiment score.
-            sentiment_score=sentiment_score,
-        )
+        # ---------------------------------------------------------------
+        # Create ExitInterview.
+        #
+        # No Employee fields are modified here. The EmployeeExit
+        # simulator has already updated the current Employee state.
+        # ---------------------------------------------------------------
 
         records.append(
-            exit_interview
-        )
+            ExitInterview(
 
-        # -------------------------------------------------------------------
-        # Update employee employment status
-        #
-        # These changes are persisted when simulator.py commits
-        # the SQLAlchemy session.
-        # -------------------------------------------------------------------
+                # Same employee as the authoritative exit event.
+                employee=exit_event.employee,
 
-        employee.is_active = False
+                # Must exactly match EmployeeExit.exit_date.
+                termination_date=(
+                    exit_event.exit_date
+                ),
 
-        employee.employment_status = (
-            "Terminated"
-        )
+                # Preserve the actual contextual reason from EmployeeExit.
+                exit_reason=(
+                    exit_event.exit_reason
+                ),
 
-        employee.termination_date = (
-            termination_date
+                # Must exactly match the exit-event classification.
+                voluntary_exit=(
+                    exit_event.voluntary_flag
+                ),
+
+                destination_type=(
+                    destination_type
+                ),
+
+                satisfaction_at_exit=(
+                    generate_satisfaction_at_exit(
+                        sentiment_label
+                    )
+                ),
+
+                likelihood_to_recommend=(
+                    generate_likelihood_to_recommend(
+                        sentiment_label
+                    )
+                ),
+
+                interview_text=(
+                    interview_text
+                ),
+
+                key_themes=(
+                    key_themes
+                ),
+
+                sentiment_label=(
+                    sentiment_label
+                ),
+
+                sentiment_score=(
+                    generate_sentiment_score(
+                        sentiment_label
+                    )
+                ),
+            )
         )
 
     return records
