@@ -8,13 +8,13 @@
     {
         "check_name": "Attendance count greater than zero",
         "passed": true,
-        "record_count": 790532,
+        "record_count": 789642,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Payroll count greater than zero",
         "passed": true,
-        "record_count": 38328,
+        "record_count": 38218,
         "severity": "CRITICAL"
     },
     {

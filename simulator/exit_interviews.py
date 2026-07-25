@@ -11,14 +11,7 @@ EmployeeExit is the authoritative source for:
 - the exit reason;
 - whether the exit was voluntary.
 
-This module no longer:
-- selects employees to leave;
-- generates a separate termination date;
-- changes Employee.is_active;
-- changes Employee.employment_status;
-- changes Employee.termination_date.
-
-Instead, it generates an ExitInterview for a selected proportion of
+This module generates an ExitInterview for a selected proportion of
 existing EmployeeExit events.
 
 This separation keeps the operational lifecycle consistent:
@@ -61,7 +54,7 @@ EXIT_INTERVIEW_PARTICIPATION_RATE = 0.80
 # -------------------------------------------------------------------
 # Exit interview content configuration
 #
-# Content is now keyed to EmployeeExit.exit_type so the interview
+# Content is keyed to EmployeeExit.exit_type so the interview
 # remains consistent with the authoritative exit event.
 # -------------------------------------------------------------------
 

@@ -95,36 +95,31 @@ def _build_unique_employee_number(
 
 def _select_manager(
     department: Department,
-    employees: list[Employee],
+    managers: list[Employee],
 ) -> Employee:
     """
-    Select an active manager for a new hire.
+    Select a manager for a new hire.
 
+    The caller is responsible for supplying only active managers.
     A manager from the same department is preferred. If one is not
-    available, any active manager is used.
+    available, any supplied manager is used.
     """
 
-    active_managers = [
-        employee
-        for employee in employees
-        if employee.is_manager and employee.is_active
-    ]
-
-    if not active_managers:
+    if not managers:
         raise ValueError(
             "Recruitment cannot create employees because no active managers exist."
         )
 
     department_managers = [
         manager
-        for manager in active_managers
+        for manager in managers
         if manager.department_id == department.department_id
     ]
 
     if department_managers:
         return random.choice(department_managers)
 
-    return random.choice(active_managers)
+    return random.choice(managers)
 
 
 def _generate_date_of_birth(hire_date: date) -> date:
@@ -173,7 +168,7 @@ def _create_recruited_employee(
     department: Department,
     job_role: JobRole,
     locations: list[Location],
-    employees: list[Employee],
+    managers: list[Employee],
     existing_numbers: set[str],
     existing_emails: set[str],
 ) -> Employee:
@@ -185,7 +180,7 @@ def _create_recruited_employee(
 
     manager = _select_manager(
         department=department,
-        employees=employees,
+        managers=managers,
     )
 
     location = random.choice(
@@ -288,11 +283,17 @@ def generate_recruitment(
         for employee in employees
     }
 
-    # New recruits are appended to this working population so later
-    # recruits can see newly created Manager-grade employees if needed.
-    manager_population = list(
+    # generate_recruitment() owns and maintains the current workforce.
+    current_employee_population = list(
         employees
     )
+
+    # _select_manager() receives only the active managers it needs.
+    active_managers = [
+        employee
+        for employee in current_employee_population
+        if employee.is_manager and employee.is_active
+    ]
 
     for index in range(
         1,
@@ -357,7 +358,7 @@ def generate_recruitment(
                 department=department,
                 job_role=job_role,
                 locations=locations,
-                employees=manager_population,
+                managers=active_managers,
                 existing_numbers=existing_numbers,
                 existing_emails=existing_emails,
             )
@@ -366,9 +367,19 @@ def generate_recruitment(
                 successful_employee
             )
 
-            manager_population.append(
+            current_employee_population.append(
                 successful_employee
             )
+
+            # A newly recruited Manager-grade employee can manage later
+            # recruits created during the same simulation run.
+            if (
+                successful_employee.is_manager
+                and successful_employee.is_active
+            ):
+                active_managers.append(
+                    successful_employee
+                )
 
         closing_date = opening_date + timedelta(
             days=random.randint(
