@@ -4,14 +4,13 @@
 # Development Task Runner
 ###############################################################################
 
-.PHONY: help setup install clean format lint test \
-        db-create db-seed simulate validate \
-        docker-up docker-down docker-logs \
-        airflow spark api \
-        terraform-init terraform-plan terraform-apply \
-        docs catalogue metadata \
-        etl bronze silver gold dbt \
-        full-refresh
+.PHONY: help \
+	setup install clean format lint test \
+	db-create db-seed \
+	simulate simulate-full validate \
+	extract validate-raw upload-s3 raw-pipeline full-refresh \
+	docker-up docker-down docker-logs
+
 
 ###############################################################################
 # Help
@@ -21,12 +20,15 @@ help:
 	@echo ""
 	@echo "People Analytics Lakehouse Platform"
 	@echo ""
-	@echo "Available Commands:"
+	@echo "Available Commands"
 	@echo ""
 	@echo "Development"
 	@echo "  make setup"
 	@echo "  make install"
 	@echo "  make clean"
+	@echo "  make format"
+	@echo "  make lint"
+	@echo "  make test"
 	@echo ""
 	@echo "Database"
 	@echo "  make db-create"
@@ -34,32 +36,24 @@ help:
 	@echo ""
 	@echo "Simulation"
 	@echo "  make simulate"
+	@echo "  make simulate-full"
 	@echo "  make validate"
 	@echo ""
-	@echo "ETL"
-	@echo "  make etl"
-	@echo "  make bronze"
-	@echo "  make silver"
-	@echo "  make gold"
+	@echo "Raw ETL"
+	@echo "  make extract"
+	@echo "  make validate-raw"
+	@echo "  make upload-s3"
+	@echo "  make raw-pipeline"
 	@echo ""
-	@echo "Analytics"
-	@echo "  make dbt"
+	@echo "Platform"
+	@echo "  make full-refresh"
 	@echo ""
 	@echo "Docker"
 	@echo "  make docker-up"
 	@echo "  make docker-down"
+	@echo "  make docker-logs"
 	@echo ""
-	@echo "Terraform"
-	@echo "  make terraform-init"
-	@echo "  make terraform-plan"
-	@echo "  make terraform-apply"
-	@echo ""
-	@echo "API"
-	@echo "  make api"
-	@echo ""
-	@echo "Testing"
-	@echo "  make test"
-	@echo ""
+
 
 ###############################################################################
 # Development
@@ -71,11 +65,20 @@ setup:
 install:
 	pip install -r requirements.txt
 
-clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
 
 ###############################################################################
-# Formatting
+# Cleanup
+#
+# Uses Python rather than Unix 'find' so it also works from Windows
+# environments where GNU find may not be available.
+###############################################################################
+
+clean:
+	python -c "import shutil; from pathlib import Path; [shutil.rmtree(p, ignore_errors=True) for p in Path('.').rglob('__pycache__')]; print('Python cache directories removed.')"
+
+
+###############################################################################
+# Formatting / Linting
 ###############################################################################
 
 format:
@@ -84,12 +87,14 @@ format:
 lint:
 	ruff check .
 
+
 ###############################################################################
 # Testing
 ###############################################################################
 
 test:
 	pytest
+
 
 ###############################################################################
 # Database
@@ -101,48 +106,71 @@ db-create:
 db-seed:
 	python -m database.seed
 
+
 ###############################################################################
 # Simulation
 ###############################################################################
 
 simulate:
-	python -m simulator.simulator
+	python main.py simulate
+
+simulate-full:
+	python main.py simulate --full-refresh
 
 validate:
-	python -m quality.validation
+	python main.py validate
+
 
 ###############################################################################
-# ETL
+# Raw ETL
 ###############################################################################
 
-etl:
-	python -m etl.extract
+extract:
+	python main.py extract
 
-bronze:
-	python -m etl.bronze_loader
+validate-raw:
+	python main.py validate-raw
 
-silver:
-	python -m etl.silver_loader
+upload-s3:
+	python main.py upload-s3
 
-gold:
-	python -m etl.gold_loader
 
 ###############################################################################
-# dbt
+# Raw Pipeline
+#
+# PostgreSQL
+#     ↓
+# Raw Parquet
+#     ↓
+# Raw extraction validation
+#     ↓
+# Amazon S3 raw zone
 ###############################################################################
 
-dbt:
-	cd dbt && dbt build
+raw-pipeline:
+	python main.py raw-pipeline
+
 
 ###############################################################################
-# Metadata
+# Full Platform Refresh - Current Implemented Scope
+#
+# Simulation full refresh
+#     ↓
+# Operational quality validation
+#     ↓
+# PostgreSQL extraction
+#     ↓
+# Raw extraction validation
+#     ↓
+# Amazon S3 raw upload
+#
+# Bronze / Silver / Gold are intentionally excluded until those layers
+# are implemented.
 ###############################################################################
 
-metadata:
-	python -m metadata.loader
+full-refresh:
+	python main.py full-refresh
 
-catalogue:
-	python -m catalogue.report
 
 ###############################################################################
 # Docker
@@ -156,50 +184,3 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f
-
-###############################################################################
-# Airflow
-###############################################################################
-
-airflow:
-	docker compose up airflow
-
-###############################################################################
-# Spark
-###############################################################################
-
-spark:
-	docker compose up spark
-
-###############################################################################
-# API
-###############################################################################
-
-api:
-	uvicorn api.main:app --reload
-
-###############################################################################
-# Terraform
-###############################################################################
-
-terraform-init:
-	cd terraform/environments/dev && terraform init
-
-terraform-plan:
-	cd terraform/environments/dev && terraform plan
-
-terraform-apply:
-	cd terraform/environments/dev && terraform apply
-
-###############################################################################
-# Full Platform Refresh
-###############################################################################
-
-full-refresh:
-	python -m simulator.simulator
-	python -m quality.validation
-	python -m etl.extract
-	python -m etl.bronze_loader
-	python -m etl.silver_loader
-	python -m etl.gold_loader
-	cd dbt && dbt build
