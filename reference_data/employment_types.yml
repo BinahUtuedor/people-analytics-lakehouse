@@ -1,0 +1,11 @@
+- employment_type_code: PERMANENT
+  employment_type_name: Permanent
+  description: Employee engaged on an ongoing permanent employment contract.
+
+- employment_type_code: FIXED_TERM
+  employment_type_name: Fixed Term
+  description: Employee engaged for a defined contractual period.
+
+- employment_type_code: CONTRACTOR
+  employment_type_name: Contractor
+  description: Worker engaged on a contractual basis rather than as a permanent employee.

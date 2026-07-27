@@ -15,3 +15,11 @@ from .employee_survey import EmployeeSurvey
 from .manager_feedback import ManagerFeedback
 from .exit_interview import ExitInterview
 from .employee_exit import EmployeeExit
+from .attendance_status import AttendanceStatus
+from .gender import Gender
+from .leave_type import LeaveType
+from .employment_type import EmploymentType
+from .exit_reason import ExitReason
+from .training_category import TrainingCategory
+from .public_holiday import PublicHoliday
+from .absence_reason import AbsenceReason

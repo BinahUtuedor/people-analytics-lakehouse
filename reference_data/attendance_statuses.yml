@@ -1,0 +1,35 @@
+- attendance_status_code: PRESENT
+  attendance_status_name: Present
+  weight: 3
+  requires_clock_times: true
+  absence_reason_required: false
+
+- attendance_status_code: REMOTE
+  attendance_status_name: Remote
+  weight: 2
+  requires_clock_times: true
+  absence_reason_required: false
+
+- attendance_status_code: HYBRID
+  attendance_status_name: Hybrid
+  weight: 1
+  requires_clock_times: true
+  absence_reason_required: false
+
+- attendance_status_code: TRAINING
+  attendance_status_name: Training
+  weight: 1
+  requires_clock_times: true
+  absence_reason_required: false
+
+- attendance_status_code: BUSINESS_TRAVEL
+  attendance_status_name: Business Travel
+  weight: 1
+  requires_clock_times: true
+  absence_reason_required: false
+
+- attendance_status_code: ABSENT
+  attendance_status_name: Absent
+  weight: 1
+  requires_clock_times: false
+  absence_reason_required: true

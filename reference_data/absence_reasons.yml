@@ -1,0 +1,19 @@
+- absence_reason_code: UNPLANNED
+  absence_reason_name: Unplanned Absence
+  description: Unexpected absence not covered by another defined category.
+
+- absence_reason_code: MEDICAL_APPOINTMENT
+  absence_reason_name: Medical Appointment
+  description: Absence related to a medical, dental or healthcare appointment.
+
+- absence_reason_code: FAMILY_EMERGENCY
+  absence_reason_name: Family Emergency
+  description: Unplanned absence caused by an urgent family situation.
+
+- absence_reason_code: TRANSPORT_DISRUPTION
+  absence_reason_name: Transport Disruption
+  description: Absence caused by significant disruption to transport or travel.
+
+- absence_reason_code: UNAUTHORISED
+  absence_reason_name: Unauthorised Absence
+  description: Absence that has not been formally authorised or approved.

@@ -1,0 +1,29 @@
+- leave_type_code: ANNUAL
+  leave_type_name: Annual Leave
+  description: Paid annual holiday entitlement.
+  paid: true
+  requires_approval: true
+
+- leave_type_code: SICK
+  leave_type_name: Sick Leave
+  description: Leave taken due to illness or injury.
+  paid: true
+  requires_approval: false
+
+- leave_type_code: PARENTAL
+  leave_type_name: Parental Leave
+  description: Leave taken for parental or family responsibilities.
+  paid: false
+  requires_approval: true
+
+- leave_type_code: COMPASSIONATE
+  leave_type_name: Compassionate Leave
+  description: Leave granted for bereavement or serious family circumstances.
+  paid: true
+  requires_approval: true
+
+- leave_type_code: STUDY
+  leave_type_name: Study Leave
+  description: Approved leave for professional or academic study.
+  paid: true
+  requires_approval: true

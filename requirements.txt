@@ -16,3 +16,4 @@ mlflow
 scikit-learn
 transformers
 sentence-transformers
+PyYAML>=6.0

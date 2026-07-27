@@ -1,0 +1,15 @@
+- training_category_code: COMPLIANCE
+  training_category_name: Compliance
+  description: Mandatory or regulatory training covering organisational, legal, safety and compliance requirements.
+
+- training_category_code: LEADERSHIP
+  training_category_name: Leadership
+  description: Training focused on leadership, people management and management capability development.
+
+- training_category_code: TECHNICAL
+  training_category_name: Technical
+  description: Training focused on technical, analytical, digital and technology-related skills.
+
+- training_category_code: PROFESSIONAL_DEVELOPMENT
+  training_category_name: Professional Development
+  description: Training focused on broader professional, project management and career development skills.

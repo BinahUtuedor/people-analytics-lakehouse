@@ -61,11 +61,49 @@ class Settings:
     # ======================================================
 
     AWS_REGION = os.getenv(
-        "AWS_REGION"
+        "AWS_REGION",
+        "eu-west-2",
     )
 
-    S3_BUCKET = os.getenv(
-        "S3_BUCKET"
+    AWS_S3_BUCKET = os.getenv(
+        "AWS_S3_BUCKET"
+    )
+
+    AWS_S3_RAW_PREFIX = os.getenv(
+        "AWS_S3_RAW_PREFIX",
+        "raw/postgresql",
+    )
+
+    AWS_S3_BRONZE_PREFIX = os.getenv(
+        "AWS_S3_BRONZE_PREFIX",
+        "bronze",
+    )
+
+    AWS_S3_SILVER_PREFIX = os.getenv(
+        "AWS_S3_SILVER_PREFIX",
+        "silver",
+    )
+
+    AWS_S3_GOLD_PREFIX = os.getenv(
+        "AWS_S3_GOLD_PREFIX",
+        "gold",
+    )
+
+    # AWS credentials.
+    #
+    # Boto3 automatically detects these standard environment
+    # variables, so they do not need to be passed manually when
+    # creating an S3 client.
+    AWS_ACCESS_KEY_ID = os.getenv(
+        "AWS_ACCESS_KEY_ID"
+    )
+
+    AWS_SECRET_ACCESS_KEY = os.getenv(
+        "AWS_SECRET_ACCESS_KEY"
+    )
+
+    AWS_SESSION_TOKEN = os.getenv(
+        "AWS_SESSION_TOKEN"
     )
 
     # ======================================================

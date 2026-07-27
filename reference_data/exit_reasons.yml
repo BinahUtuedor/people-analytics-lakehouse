@@ -1,0 +1,66 @@
+# ==========================================================
+# Employee Exit Reasons
+# ==========================================================
+#
+# Reference data used by the employee exit simulator.
+#
+# weight controls the relative probability of each exit type.
+#
+# Current probability distribution:
+#   Resignation     = 60%
+#   Retirement      = 8%
+#   End of Contract = 15%
+#   Redundancy      = 12%
+#   Dismissal       = 5%
+#
+# Total weight = 100
+# ==========================================================
+
+- exit_reason_code: RESIGNATION
+  exit_reason_name: Resignation
+  voluntary: true
+  weight: 60
+  reasons:
+    - Accepted a new external career opportunity.
+    - Career progression opportunities were perceived as limited.
+    - Seeking improved work-life balance.
+    - Relocating for personal reasons.
+    - Seeking a role with broader responsibilities.
+    - Compensation expectations were not fully aligned.
+    - Pursuing a career change into another area.
+
+- exit_reason_code: RETIREMENT
+  exit_reason_name: Retirement
+  voluntary: true
+  weight: 8
+  reasons:
+    - Retired following completion of planned career service.
+    - Chose early retirement for personal reasons.
+    - Retired after reaching planned retirement age.
+
+- exit_reason_code: END_OF_CONTRACT
+  exit_reason_name: End of Contract
+  voluntary: false
+  weight: 15
+  reasons:
+    - Fixed-term contract reached its scheduled end date.
+    - Temporary assignment concluded as planned.
+    - Project-based employment ended following project completion.
+
+- exit_reason_code: REDUNDANCY
+  exit_reason_name: Redundancy
+  voluntary: false
+  weight: 12
+  reasons:
+    - Role removed following organisational restructuring.
+    - Position became redundant following operating model changes.
+    - Workforce reduction following changing business requirements.
+
+- exit_reason_code: DISMISSAL
+  exit_reason_name: Dismissal
+  voluntary: false
+  weight: 5
+  reasons:
+    - Employment ended following sustained performance concerns.
+    - Employment terminated following a formal conduct process.
+    - Employment ended after required performance improvement was not achieved.

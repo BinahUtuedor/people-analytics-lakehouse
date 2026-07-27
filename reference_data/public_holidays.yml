@@ -1,0 +1,17 @@
+- holiday_code: NEW_YEARS_DAY
+  holiday_name: New Year's Day
+  month_day: "01-01"
+  country_code: GB
+  active: true
+
+- holiday_code: CHRISTMAS_DAY
+  holiday_name: Christmas Day
+  month_day: "12-25"
+  country_code: GB
+  active: true
+
+- holiday_code: BOXING_DAY
+  holiday_name: Boxing Day
+  month_day: "12-26"
+  country_code: GB
+  active: true

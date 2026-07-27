@@ -1,0 +1,24 @@
+- country: United Kingdom
+  city: London
+  office_name: London HQ
+  timezone: Europe/London
+
+- country: United Kingdom
+  city: Manchester
+  office_name: Manchester Office
+  timezone: Europe/London
+
+- country: United Kingdom
+  city: Birmingham
+  office_name: Birmingham Office
+  timezone: Europe/London
+
+- country: United Kingdom
+  city: Bristol
+  office_name: Bristol Office
+  timezone: Europe/London
+
+- country: United Kingdom
+  city: Edinburgh
+  office_name: Edinburgh Office
+  timezone: Europe/London

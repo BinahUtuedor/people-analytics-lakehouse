@@ -96,6 +96,12 @@
         "severity": "CRITICAL"
     },
     {
+        "check_name": "No negative payroll records",
+        "passed": true,
+        "record_count": 0,
+        "severity": "CRITICAL"
+    },
+    {
         "check_name": "No active employees with exit events",
         "passed": true,
         "record_count": 0,
@@ -133,12 +139,6 @@
     },
     {
         "check_name": "No exit interviews for active employees",
-        "passed": true,
-        "record_count": 0,
-        "severity": "CRITICAL"
-    },
-    {
-        "check_name": "No negative payroll records",
         "passed": true,
         "record_count": 0,
         "severity": "CRITICAL"

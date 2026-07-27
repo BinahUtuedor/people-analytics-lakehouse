@@ -1,0 +1,49 @@
+- role_name: HR Advisor
+  grade: Associate
+  salary_band_min: 30000
+  salary_band_max: 42000
+
+- role_name: Finance Analyst
+  grade: Associate
+  salary_band_min: 35000
+  salary_band_max: 50000
+
+- role_name: Finance Business Partner
+  grade: Manager
+  salary_band_min: 55000
+  salary_band_max: 75000
+
+- role_name: Data Analyst
+  grade: Associate
+  salary_band_min: 35000
+  salary_band_max: 52000
+
+- role_name: Data Engineer
+  grade: Senior Associate
+  salary_band_min: 50000
+  salary_band_max: 75000
+
+- role_name: Senior Data Engineer
+  grade: Manager
+  salary_band_min: 70000
+  salary_band_max: 95000
+
+- role_name: Software Engineer
+  grade: Senior Associate
+  salary_band_min: 50000
+  salary_band_max: 80000
+
+- role_name: Project Manager
+  grade: Manager
+  salary_band_min: 55000
+  salary_band_max: 78000
+
+- role_name: Operations Manager
+  grade: Manager
+  salary_band_min: 52000
+  salary_band_max: 72000
+
+- role_name: Customer Support Specialist
+  grade: Associate
+  salary_band_min: 28000
+  salary_band_max: 40000

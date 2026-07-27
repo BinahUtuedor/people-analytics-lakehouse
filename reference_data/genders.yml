@@ -1,0 +1,11 @@
+- gender_code: FEMALE
+  gender_name: Female
+
+- gender_code: MALE
+  gender_name: Male
+
+- gender_code: NON_BINARY
+  gender_name: Non-binary
+
+- gender_code: PREFER_NOT_TO_SAY
+  gender_name: Prefer not to say

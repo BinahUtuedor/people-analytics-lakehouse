@@ -1,0 +1,11 @@
+- unit_name: Corporate Services
+  description: Finance, HR, legal and central support functions.
+
+- unit_name: Technology
+  description: Software engineering, data, infrastructure and cyber teams.
+
+- unit_name: Commercial
+  description: Sales, marketing, customer success and partnerships.
+
+- unit_name: Operations
+  description: Service delivery, business operations and support functions.

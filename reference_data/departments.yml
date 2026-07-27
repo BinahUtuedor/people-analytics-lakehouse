@@ -1,0 +1,39 @@
+- department_name: Human Resources
+  cost_center: CC-HR-001
+  business_unit: Corporate Services
+
+- department_name: Finance
+  cost_center: CC-FIN-001
+  business_unit: Corporate Services
+
+- department_name: Data Engineering
+  cost_center: CC-DATA-001
+  business_unit: Technology
+
+- department_name: Software Engineering
+  cost_center: CC-SWE-001
+  business_unit: Technology
+
+- department_name: Cyber Security
+  cost_center: CC-CYB-001
+  business_unit: Technology
+
+- department_name: Sales
+  cost_center: CC-SALES-001
+  business_unit: Commercial
+
+- department_name: Marketing
+  cost_center: CC-MKT-001
+  business_unit: Commercial
+
+- department_name: Customer Success
+  cost_center: CC-CS-001
+  business_unit: Commercial
+
+- department_name: Operations
+  cost_center: CC-OPS-001
+  business_unit: Operations
+
+- department_name: Service Delivery
+  cost_center: CC-SD-001
+  business_unit: Operations

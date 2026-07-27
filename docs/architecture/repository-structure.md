@@ -86,6 +86,7 @@ people-analytics-lakehouse-platform/
 │   ├── __init__.py
 │   ├── attendance.py
 │   ├── employees.py
+│   ├── effective_dates.py 
 │   ├── exit_interviews.py
 │   ├── leave.py
 │   ├── manager_feedback.py
@@ -119,6 +120,14 @@ people-analytics-lakehouse-platform/
 │   │    ├── performance_review.py
 │   │    ├── employee_survey.py
 │   │    ├── manager_feedback.py
+│   │    ├── attendance_status.py       ← NEW
+│   │    ├── gender.py                  ← NEW
+│   │    ├── leave_type.py              ← NEW
+│   │    ├── employment_type.py         ← NEW
+│   │    ├── exit_reason.py             ← NEW
+│   │    ├── training_category.py       ← NEW
+│   │    ├── public_holiday.py          ← NEW
+│   │    ├── absence_reason.py          ← NEW
 │   │    └── exit_interview.py
 │   ├── base.py
 │   ├── connection.py
@@ -229,7 +238,8 @@ people-analytics-lakehouse-platform/
 │   ├── expectations.py
 │   ├── duplicate_checks.py
 │   ├── integrity_checks.py
-│   ├── metrics.pyquality
+│   ├── metrics.py
+│   ├── reference_data_checks.py
 │   ├── report.py
 │   ├── validate_promotion_salary.py
 │   ├── workforce_lifecycle_checks.py
@@ -240,8 +250,6 @@ people-analytics-lakehouse-platform/
 ├── etl/                                 # ETL pipelines
 │   ├── __init__.py
 │   ├── extract.py
-│   ├── transform.py
-│   ├── load_postgres.py
 │   ├── export_s3.py
 │   ├── bronze_loader.py
 │   ├── silver_loader.py
@@ -348,11 +356,14 @@ people-analytics-lakehouse-platform/
 │   ├── departments.yml
 │   ├── locations.yml
 │   ├── job_roles.yml
-│   ├── leave_types.yml
-│   ├── employment_types.yml
-│   ├── exit_reasons.yml
-│   ├── training_categories.yml
-│   ├── public_holidays.yml
+│   ├── attendance_statuses.yml         # NEW
+│   ├── genders.yml                     # NEW
+│   ├── leave_types.yml                 # NEW
+│   ├── employment_types.yml            # NEW
+│   ├── exit_reasons.yml                # NEW
+│   ├── training_categories.yml         # NEW
+│   ├── public_holidays.yml             # NEW
+│   ├── absence_reasons.yml             # NEW
 │   └── loader.py
 │
 ├── scripts/                            
