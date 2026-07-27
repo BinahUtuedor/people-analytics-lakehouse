@@ -4,6 +4,9 @@ Leave simulation module.
 Generates employee leave requests only inside the employee's employment
 window.
 
+Leave types are supplied from PostgreSQL reference tables seeded from
+YAML reference data.
+
 Business rules:
 - leave cannot start before hire_date;
 - leave cannot end after termination_date;
@@ -20,20 +23,15 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from config.constants import DEFAULT_RANDOM_SEED, HISTORICAL_YEARS
-from database.models import Employee, LeaveRequest
+from database.models import (
+    Employee,
+    LeaveRequest,
+    LeaveType,
+)
 from simulator.effective_dates import employment_end_date
 
 
 random.seed(DEFAULT_RANDOM_SEED)
-
-
-LEAVE_TYPES = [
-    "Annual Leave",
-    "Sick Leave",
-    "Parental Leave",
-    "Compassionate Leave",
-    "Study Leave",
-]
 
 
 def simulation_history_start() -> date:
@@ -69,14 +67,25 @@ def random_date_between(
 
 def generate_leave_requests(
     employees: list[Employee],
+    leave_types: list[LeaveType],
 ) -> list[LeaveRequest]:
     """
     Generate simulated leave requests inside each employee's employment
     window.
 
+    Leave types are supplied from centrally governed PostgreSQL
+    reference data.
+
     Employees with no overlap between their employment period and the
     configured historical simulation period receive no leave records.
     """
+
+    if not leave_types:
+        raise ValueError(
+            "Leave simulation requires leave-type "
+            "reference data. "
+            "Run python -m database.seed first."
+        )
 
     records: list[LeaveRequest] = []
 
@@ -230,11 +239,16 @@ def generate_leave_requests(
             else:
                 approved_date = None
 
+            selected_leave_type = random.choice(
+                leave_types
+            )
+
             records.append(
                 LeaveRequest(
                     employee=employee,
-                    leave_type=random.choice(
-                        LEAVE_TYPES
+                    leave_type=(
+                        selected_leave_type
+                        .leave_type_name
                     ),
                     start_date=start_date,
                     end_date=end_date,

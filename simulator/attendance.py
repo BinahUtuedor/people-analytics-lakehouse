@@ -6,6 +6,8 @@ Attendance simulation module.
 - absence_reason is only populated when status = Absent.
 - Leave is generated separately in leave_requests.
 - Attendance is generated only within each employee's employment window.
+- Attendance statuses, absence reasons and public holidays are supplied
+  from PostgreSQL reference tables seeded from YAML reference data.
 
 Employment window:
 
@@ -24,40 +26,17 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from config.constants import DEFAULT_RANDOM_SEED, HISTORICAL_YEARS
-from database.models import Attendance, Employee
+from database.models import (
+    AbsenceReason,
+    Attendance,
+    AttendanceStatus,
+    Employee,
+    PublicHoliday,
+)
 from simulator.effective_dates import employment_end_date
 
 
 random.seed(DEFAULT_RANDOM_SEED)
-
-
-ATTENDANCE_STATUSES = [
-    "Present",
-    "Present",
-    "Present",
-    "Remote",
-    "Remote",
-    "Hybrid",
-    "Training",
-    "Business Travel",
-    "Absent",
-]
-
-
-ABSENCE_REASONS = [
-    "Unplanned Absence",
-    "Medical Appointment",
-    "Family Emergency",
-    "Transport Disruption",
-    "Unauthorised Absence",
-]
-
-
-UK_PUBLIC_HOLIDAYS = {
-    "01-01",  # New Year's Day
-    "12-25",  # Christmas Day
-    "12-26",  # Boxing Day
-}
 
 
 def get_simulation_start_date() -> date:
@@ -78,17 +57,26 @@ def is_weekend(
 
 def is_public_holiday(
     work_date: date,
+    public_holidays: list[PublicHoliday],
 ) -> bool:
     """
-    Return whether a date matches one of the simplified public holidays.
+    Return whether a date matches one of the active public holidays.
 
-    More complete UK bank-holiday handling can be introduced later
-    through the project's reference-data layer.
+    Public-holiday definitions are loaded from PostgreSQL reference data.
+
+    The current reference-data model uses recurring MM-DD values,
+    preserving the simulator's existing simplified holiday behaviour.
     """
 
-    return (
-        work_date.strftime("%m-%d")
-        in UK_PUBLIC_HOLIDAYS
+    month_day = work_date.strftime(
+        "%m-%d"
+    )
+
+    return any(
+        holiday.active
+        and holiday.month_day
+        == month_day
+        for holiday in public_holidays
     )
 
 
@@ -250,10 +238,97 @@ def calculate_overtime(
     )
 
 
+def validate_attendance_reference_data(
+    attendance_statuses: list[AttendanceStatus],
+    absence_reasons: list[AbsenceReason],
+    public_holidays: list[PublicHoliday],
+) -> None:
+    """
+    Confirm that all reference datasets required by attendance exist.
+    """
+
+    missing: list[str] = []
+
+    if not attendance_statuses:
+        missing.append(
+            "attendance_statuses"
+        )
+
+    if not absence_reasons:
+        missing.append(
+            "absence_reasons"
+        )
+
+    if not public_holidays:
+        missing.append(
+            "public_holidays"
+        )
+
+    if missing:
+        raise ValueError(
+            "Attendance simulation is missing required "
+            "reference data: "
+            + ", ".join(
+                missing
+            )
+            + "."
+        )
+
+
+def select_attendance_status(
+    attendance_statuses: list[AttendanceStatus],
+) -> str:
+    """
+    Select an attendance status using reference-data weights.
+
+    This preserves the previous distribution:
+
+        Present          weight 3
+        Remote           weight 2
+        Hybrid           weight 1
+        Training         weight 1
+        Business Travel  weight 1
+        Absent           weight 1
+    """
+
+    selected_status = random.choices(
+        population=attendance_statuses,
+        weights=[
+            status.weight
+            for status
+            in attendance_statuses
+        ],
+        k=1,
+    )[0]
+
+    return (
+        selected_status
+        .attendance_status_name
+    )
+
+
+def select_absence_reason(
+    absence_reasons: list[AbsenceReason],
+) -> str:
+    """
+    Select one absence reason from reference data.
+    """
+
+    return (
+        random.choice(
+            absence_reasons
+        )
+        .absence_reason_name
+    )
+
+
 def generate_attendance_for_employee(
     employee: Employee,
     start_date: date,
     end_date: date,
+    attendance_statuses: list[AttendanceStatus],
+    absence_reasons: list[AbsenceReason],
+    public_holidays: list[PublicHoliday],
 ) -> list[Attendance]:
     """
     Generate attendance for one employee within their employment window.
@@ -296,7 +371,8 @@ def generate_attendance_for_employee(
                 current_date
             )
             or is_public_holiday(
-                current_date
+                current_date,
+                public_holidays,
             )
         ):
             current_date += timedelta(
@@ -304,8 +380,8 @@ def generate_attendance_for_employee(
             )
             continue
 
-        status = random.choice(
-            ATTENDANCE_STATUSES
+        status = select_attendance_status(
+            attendance_statuses
         )
 
         clock_in = generate_clock_in(
@@ -327,8 +403,8 @@ def generate_attendance_for_employee(
         )
 
         absence_reason = (
-            random.choice(
-                ABSENCE_REASONS
+            select_absence_reason(
+                absence_reasons
             )
             if status == "Absent"
             else None
@@ -358,6 +434,9 @@ def generate_attendance_for_employee(
 
 def generate_attendance(
     employees: list[Employee],
+    attendance_statuses: list[AttendanceStatus],
+    absence_reasons: list[AbsenceReason],
+    public_holidays: list[PublicHoliday],
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> list[Attendance]:
@@ -367,7 +446,22 @@ def generate_attendance(
 
     Terminated employees are intentionally included because they require
     historical attendance up to their termination date.
+
+    Attendance statuses, absence reasons and public holidays are supplied
+    from centrally governed reference tables.
     """
+
+    validate_attendance_reference_data(
+        attendance_statuses=(
+            attendance_statuses
+        ),
+        absence_reasons=(
+            absence_reasons
+        ),
+        public_holidays=(
+            public_holidays
+        ),
+    )
 
     if start_date is None:
         start_date = (
@@ -387,6 +481,15 @@ def generate_attendance(
                 employee=employee,
                 start_date=start_date,
                 end_date=end_date,
+                attendance_statuses=(
+                    attendance_statuses
+                ),
+                absence_reasons=(
+                    absence_reasons
+                ),
+                public_holidays=(
+                    public_holidays
+                ),
             )
         )
 

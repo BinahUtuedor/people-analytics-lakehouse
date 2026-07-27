@@ -1,8 +1,8 @@
 check_name,passed,record_count,severity
-Employees count greater than zero,True,2121,CRITICAL
-Attendance count greater than zero,True,789642,CRITICAL
-Payroll count greater than zero,True,38218,CRITICAL
-Employee exits count greater than zero,True,42,CRITICAL
+Employees count greater than zero,True,2118,CRITICAL
+Attendance count greater than zero,True,821600,CRITICAL
+Payroll count greater than zero,True,39601,CRITICAL
+Employee exits count greater than zero,True,50,CRITICAL
 Exactly one employee has no manager,True,1,CRITICAL
 No non-manager employees without manager,True,0,CRITICAL
 No duplicate employee numbers,True,0,CRITICAL

@@ -2,25 +2,25 @@
     {
         "check_name": "Employees count greater than zero",
         "passed": true,
-        "record_count": 2121,
+        "record_count": 2118,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Attendance count greater than zero",
         "passed": true,
-        "record_count": 789642,
+        "record_count": 821600,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Payroll count greater than zero",
         "passed": true,
-        "record_count": 38218,
+        "record_count": 39601,
         "severity": "CRITICAL"
     },
     {
         "check_name": "Employee exits count greater than zero",
         "passed": true,
-        "record_count": 42,
+        "record_count": 50,
         "severity": "CRITICAL"
     },
     {

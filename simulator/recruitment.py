@@ -7,6 +7,9 @@ records for successfully filled vacancies.
 A filled recruitment event therefore increases the employee population
 and links Recruitment.successful_employee to the employee created from
 that recruitment process.
+
+Gender and employment type values are sourced from PostgreSQL reference
+tables while preserving the simulator's existing recruitment behaviour.
 """
 
 from __future__ import annotations
@@ -18,10 +21,15 @@ from decimal import Decimal
 
 from faker import Faker
 
-from config.constants import DEFAULT_RANDOM_SEED, HISTORICAL_YEARS
+from config.constants import (
+    DEFAULT_RANDOM_SEED,
+    HISTORICAL_YEARS,
+)
 from database.models import (
     Department,
     Employee,
+    EmploymentType,
+    Gender,
     JobRole,
     Location,
     Recruitment,
@@ -29,19 +37,35 @@ from database.models import (
 
 
 fake = Faker("en_GB")
-fake.seed_instance(DEFAULT_RANDOM_SEED)
-random.seed(DEFAULT_RANDOM_SEED)
+fake.seed_instance(
+    DEFAULT_RANDOM_SEED
+)
+random.seed(
+    DEFAULT_RANDOM_SEED
+)
 
 
-def _split_candidate_name(candidate_name: str) -> tuple[str, str]:
+def _split_candidate_name(
+    candidate_name: str,
+) -> tuple[str, str]:
     """Split a generated candidate name into first and last names."""
 
-    parts = candidate_name.strip().split()
+    parts = (
+        candidate_name
+        .strip()
+        .split()
+    )
 
     if len(parts) == 1:
-        return parts[0], "Employee"
+        return (
+            parts[0],
+            "Employee",
+        )
 
-    return parts[0], parts[-1]
+    return (
+        parts[0],
+        parts[-1],
+    )
 
 
 def _build_unique_email(
@@ -50,14 +74,25 @@ def _build_unique_email(
     vacancy_index: int,
     existing_emails: set[str],
 ) -> str:
-    """Create a deterministic email address that cannot clash with existing employees."""
+    """
+    Create a deterministic email address that cannot clash with
+    existing employees.
+    """
 
-    def clean(value: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", value.lower())
+    def clean(
+        value: str,
+    ) -> str:
+        return re.sub(
+            r"[^a-z0-9]",
+            "",
+            value.lower(),
+        )
 
     base_email = (
-        f"{clean(first_name)}.{clean(last_name)}."
-        f"rec{vacancy_index:05d}@peopleanalytics.example"
+        f"{clean(first_name)}."
+        f"{clean(last_name)}."
+        f"rec{vacancy_index:05d}"
+        "@peopleanalytics.example"
     )
 
     email = base_email
@@ -65,12 +100,18 @@ def _build_unique_email(
 
     while email in existing_emails:
         email = (
-            f"{clean(first_name)}.{clean(last_name)}."
-            f"rec{vacancy_index:05d}.{suffix}@peopleanalytics.example"
+            f"{clean(first_name)}."
+            f"{clean(last_name)}."
+            f"rec{vacancy_index:05d}."
+            f"{suffix}"
+            "@peopleanalytics.example"
         )
+
         suffix += 1
 
-    existing_emails.add(email)
+    existing_emails.add(
+        email
+    )
 
     return email
 
@@ -81,14 +122,23 @@ def _build_unique_employee_number(
 ) -> str:
     """Create a unique employee number for a recruitment hire."""
 
-    employee_number = f"REC-{vacancy_index:05d}"
+    employee_number = (
+        f"REC-{vacancy_index:05d}"
+    )
+
     suffix = 1
 
     while employee_number in existing_numbers:
-        employee_number = f"REC-{vacancy_index:05d}-{suffix}"
+        employee_number = (
+            f"REC-{vacancy_index:05d}-"
+            f"{suffix}"
+        )
+
         suffix += 1
 
-    existing_numbers.add(employee_number)
+    existing_numbers.add(
+        employee_number
+    )
 
     return employee_number
 
@@ -107,42 +157,76 @@ def _select_manager(
 
     if not managers:
         raise ValueError(
-            "Recruitment cannot create employees because no active managers exist."
+            "Recruitment cannot create employees "
+            "because no active managers exist."
         )
 
     department_managers = [
         manager
         for manager in managers
-        if manager.department_id == department.department_id
+        if (
+            manager.department_id
+            == department.department_id
+        )
     ]
 
     if department_managers:
-        return random.choice(department_managers)
+        return random.choice(
+            department_managers
+        )
 
-    return random.choice(managers)
-
-
-def _generate_date_of_birth(hire_date: date) -> date:
-    """Generate a realistic adult date of birth for a new employee."""
-
-    age_at_hire = random.randint(21, 60)
-
-    return date(
-        hire_date.year - age_at_hire,
-        random.randint(1, 12),
-        random.randint(1, 28),
+    return random.choice(
+        managers
     )
 
 
-def _generate_salary(job_role: JobRole) -> Decimal:
-    """Generate starting salary within the destination role salary band."""
+def _generate_date_of_birth(
+    hire_date: date,
+) -> date:
+    """Generate a realistic adult date of birth for a new employee."""
 
-    minimum = Decimal(str(job_role.salary_band_min))
-    maximum = Decimal(str(job_role.salary_band_max))
+    age_at_hire = random.randint(
+        21,
+        60,
+    )
+
+    return date(
+        hire_date.year
+        - age_at_hire,
+        random.randint(
+            1,
+            12,
+        ),
+        random.randint(
+            1,
+            28,
+        ),
+    )
+
+
+def _generate_salary(
+    job_role: JobRole,
+) -> Decimal:
+    """
+    Generate starting salary within the destination role salary band.
+    """
+
+    minimum = Decimal(
+        str(
+            job_role.salary_band_min
+        )
+    )
+
+    maximum = Decimal(
+        str(
+            job_role.salary_band_max
+        )
+    )
 
     if minimum > maximum:
         raise ValueError(
-            f"Invalid salary band for role '{job_role.role_name}': "
+            f"Invalid salary band for role "
+            f"'{job_role.role_name}': "
             f"{minimum} > {maximum}."
         )
 
@@ -160,6 +244,88 @@ def _generate_salary(job_role: JobRole) -> Decimal:
     )
 
 
+def _get_permanent_employment_type(
+    employment_types: list[EmploymentType],
+) -> EmploymentType:
+    """
+    Return the Permanent employment-type reference record.
+
+    Recruitment historically creates Permanent employees only.
+    This preserves that behaviour while removing the hard-coded
+    Employee employment_type value.
+    """
+
+    for employment_type in employment_types:
+        if (
+            employment_type
+            .employment_type_name
+            == "Permanent"
+        ):
+            return employment_type
+
+    raise ValueError(
+        "Permanent employment type was not found "
+        "in reference data. "
+        "Run python -m database.seed first."
+    )
+
+
+def _get_recruitment_gender_options(
+    genders: list[Gender],
+) -> list[Gender]:
+    """
+    Return the gender reference values historically used by recruitment.
+
+    Existing recruitment behaviour uses:
+
+        Female
+        Male
+        Non-binary
+        None
+
+    The reference value 'Prefer not to say' is intentionally excluded
+    here because recruitment did not previously generate it.
+    """
+
+    required_names = {
+        "Female",
+        "Male",
+        "Non-binary",
+    }
+
+    options = [
+        gender
+        for gender in genders
+        if (
+            gender.gender_name
+            in required_names
+        )
+    ]
+
+    loaded_names = {
+        gender.gender_name
+        for gender in options
+    }
+
+    missing_names = (
+        required_names
+        - loaded_names
+    )
+
+    if missing_names:
+        raise ValueError(
+            "Recruitment is missing required "
+            "gender reference values: "
+            + ", ".join(
+                sorted(
+                    missing_names
+                )
+            )
+        )
+
+    return options
+
+
 def _create_recruited_employee(
     *,
     candidate_name: str,
@@ -169,13 +335,22 @@ def _create_recruited_employee(
     job_role: JobRole,
     locations: list[Location],
     managers: list[Employee],
+    employment_types: list[EmploymentType],
+    genders: list[Gender],
     existing_numbers: set[str],
     existing_emails: set[str],
 ) -> Employee:
-    """Create the Employee master record associated with a filled vacancy."""
+    """
+    Create the Employee master record associated with a filled vacancy.
 
-    first_name, last_name = _split_candidate_name(
-        candidate_name
+    Employee.gender and Employee.employment_type remain string fields
+    so the existing Employee schema remains unchanged.
+    """
+
+    first_name, last_name = (
+        _split_candidate_name(
+            candidate_name
+        )
     )
 
     manager = _select_manager(
@@ -187,48 +362,82 @@ def _create_recruited_employee(
         locations
     )
 
+    permanent_employment_type = (
+        _get_permanent_employment_type(
+            employment_types
+        )
+    )
+
+    recruitment_genders = (
+        _get_recruitment_gender_options(
+            genders
+        )
+    )
+
+    selected_gender = random.choice(
+        [
+            *recruitment_genders,
+            None,
+        ]
+    )
+
     employee = Employee(
-        employee_number=_build_unique_employee_number(
-            vacancy_index=vacancy_index,
-            existing_numbers=existing_numbers,
+        employee_number=(
+            _build_unique_employee_number(
+                vacancy_index=vacancy_index,
+                existing_numbers=(
+                    existing_numbers
+                ),
+            )
         ),
-        email=_build_unique_email(
-            first_name=first_name,
-            last_name=last_name,
-            vacancy_index=vacancy_index,
-            existing_emails=existing_emails,
+        email=(
+            _build_unique_email(
+                first_name=first_name,
+                last_name=last_name,
+                vacancy_index=vacancy_index,
+                existing_emails=(
+                    existing_emails
+                ),
+            )
         ),
         first_name=first_name,
         last_name=last_name,
-        gender=random.choice(
-            [
-                "Female",
-                "Male",
-                "Non-binary",
-                None,
-            ]
+        gender=(
+            selected_gender.gender_name
+            if selected_gender is not None
+            else None
         ),
-        date_of_birth=_generate_date_of_birth(
-            hire_date
+        date_of_birth=(
+            _generate_date_of_birth(
+                hire_date
+            )
         ),
         hire_date=hire_date,
         termination_date=None,
         employment_status="Active",
-        employment_type="Permanent",
+        employment_type=(
+            permanent_employment_type
+            .employment_type_name
+        ),
         contract_type="Full-Time",
-        annual_salary=_generate_salary(
-            job_role
+        annual_salary=(
+            _generate_salary(
+                job_role
+            )
         ),
         currency="GBP",
         department=department,
         job_role=job_role,
         location=location,
         manager=manager,
+
         # A Manager-grade recruit is represented as a manager in the
         # employee master, but still reports to an existing manager.
         is_manager=(
-            job_role.grade == "Manager"
+            job_role.grade
+            == "Manager"
         ),
+
         is_active=True,
     )
 
@@ -240,7 +449,12 @@ def generate_recruitment(
     job_roles: list[JobRole],
     locations: list[Location],
     employees: list[Employee],
-) -> tuple[list[Recruitment], list[Employee]]:
+    employment_types: list[EmploymentType],
+    genders: list[Gender],
+) -> tuple[
+    list[Recruitment],
+    list[Employee],
+]:
     """
     Generate recruitment campaigns and successful new hires.
 
@@ -260,17 +474,44 @@ def generate_recruitment(
             Recruitment events and newly recruited employees.
     """
 
-    recruitment_records: list[Recruitment] = []
-    new_employees: list[Employee] = []
+    if not employment_types:
+        raise ValueError(
+            "Recruitment requires employment-type "
+            "reference data."
+        )
+
+    if not genders:
+        raise ValueError(
+            "Recruitment requires gender "
+            "reference data."
+        )
+
+    recruitment_records: list[
+        Recruitment
+    ] = []
+
+    new_employees: list[
+        Employee
+    ] = []
 
     vacancy_count = max(
         50,
-        int(len(employees) * 0.08),
+        int(
+            len(employees)
+            * 0.08
+        ),
     )
 
     today = date.today()
-    start = today - timedelta(
-        days=365 * HISTORICAL_YEARS
+
+    start = (
+        today
+        - timedelta(
+            days=(
+                365
+                * HISTORICAL_YEARS
+            )
+        )
     )
 
     existing_numbers = {
@@ -291,8 +532,12 @@ def generate_recruitment(
     # _select_manager() receives only the active managers it needs.
     active_managers = [
         employee
-        for employee in current_employee_population
-        if employee.is_manager and employee.is_active
+        for employee
+        in current_employee_population
+        if (
+            employee.is_manager
+            and employee.is_active
+        )
     ]
 
     for index in range(
@@ -317,13 +562,19 @@ def generate_recruitment(
         )
 
         # Open vacancies can occur at any point in the historical window.
-        opening_date = start + timedelta(
-            days=random.randint(
-                0,
-                max(
+        opening_date = (
+            start
+            + timedelta(
+                days=random.randint(
                     0,
-                    (today - start).days,
-                ),
+                    max(
+                        0,
+                        (
+                            today
+                            - start
+                        ).days,
+                    ),
+                )
             )
         )
 
@@ -338,29 +589,51 @@ def generate_recruitment(
                 90,
             )
 
-            latest_opening = today - timedelta(
-                days=hire_delay
+            latest_opening = (
+                today
+                - timedelta(
+                    days=hire_delay
+                )
             )
 
             if opening_date > latest_opening:
-                opening_date = latest_opening
+                opening_date = (
+                    latest_opening
+                )
 
-            hire_date = opening_date + timedelta(
-                days=hire_delay
+            hire_date = (
+                opening_date
+                + timedelta(
+                    days=hire_delay
+                )
             )
 
-            candidate_name = fake.name()
+            candidate_name = (
+                fake.name()
+            )
 
-            successful_employee = _create_recruited_employee(
-                candidate_name=candidate_name,
-                vacancy_index=index,
-                hire_date=hire_date,
-                department=department,
-                job_role=job_role,
-                locations=locations,
-                managers=active_managers,
-                existing_numbers=existing_numbers,
-                existing_emails=existing_emails,
+            successful_employee = (
+                _create_recruited_employee(
+                    candidate_name=(
+                        candidate_name
+                    ),
+                    vacancy_index=index,
+                    hire_date=hire_date,
+                    department=department,
+                    job_role=job_role,
+                    locations=locations,
+                    managers=active_managers,
+                    employment_types=(
+                        employment_types
+                    ),
+                    genders=genders,
+                    existing_numbers=(
+                        existing_numbers
+                    ),
+                    existing_emails=(
+                        existing_emails
+                    ),
+                )
             )
 
             new_employees.append(
@@ -381,10 +654,13 @@ def generate_recruitment(
                     successful_employee
                 )
 
-        closing_date = opening_date + timedelta(
-            days=random.randint(
-                20,
-                60,
+        closing_date = (
+            opening_date
+            + timedelta(
+                days=random.randint(
+                    20,
+                    60,
+                )
             )
         )
 
@@ -394,46 +670,68 @@ def generate_recruitment(
             and hire_date is not None
             and closing_date > hire_date
         ):
-            closing_date = hire_date
+            closing_date = (
+                hire_date
+            )
 
         recruitment_records.append(
             Recruitment(
                 department=department,
                 job_role=job_role,
-                vacancy_reference=f"VAC-{index:05d}",
-                candidate_name=candidate_name,
-                opening_date=opening_date,
-                closing_date=closing_date,
-                hire_date=hire_date,
+                vacancy_reference=(
+                    f"VAC-{index:05d}"
+                ),
+                candidate_name=(
+                    candidate_name
+                ),
+                opening_date=(
+                    opening_date
+                ),
+                closing_date=(
+                    closing_date
+                ),
+                hire_date=(
+                    hire_date
+                ),
                 recruitment_status=(
                     "Filled"
                     if filled
                     else "Open"
                 ),
-                source_channel=random.choice(
-                    [
-                        "LinkedIn",
-                        "Agency",
-                        "Referral",
-                        "Company Website",
-                    ]
+                source_channel=(
+                    random.choice(
+                        [
+                            "LinkedIn",
+                            "Agency",
+                            "Referral",
+                            "Company Website",
+                        ]
+                    )
                 ),
-                number_of_applicants=random.randint(
-                    10,
-                    250,
-                ),
-                number_shortlisted=random.randint(
-                    3,
-                    20,
-                ),
-                number_interviewed=random.randint(
-                    1,
-                    8,
-                ),
-                recruitment_cost=Decimal(
+                number_of_applicants=(
                     random.randint(
-                        500,
-                        12000,
+                        10,
+                        250,
+                    )
+                ),
+                number_shortlisted=(
+                    random.randint(
+                        3,
+                        20,
+                    )
+                ),
+                number_interviewed=(
+                    random.randint(
+                        1,
+                        8,
+                    )
+                ),
+                recruitment_cost=(
+                    Decimal(
+                        random.randint(
+                            500,
+                            12000,
+                        )
                     )
                 ),
                 successful_employee=(

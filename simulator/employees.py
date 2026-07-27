@@ -3,6 +3,9 @@ Employee simulation module.
 
 Generates synthetic employee records with a realistic organisational hierarchy.
 
+Employment types and genders are supplied from PostgreSQL reference tables
+seeded from YAML reference data.
+
 Hierarchy:
 1. CEO                       -> manager_id NULL
 2. Executives                -> report to CEO
@@ -20,7 +23,14 @@ from decimal import Decimal
 from faker import Faker
 
 from config.constants import DEFAULT_RANDOM_SEED
-from database.models import Department, Employee, JobRole, Location
+from database.models import (
+    Department,
+    Employee,
+    EmploymentType,
+    Gender,
+    JobRole,
+    Location,
+)
 
 
 fake = Faker("en_GB")
@@ -29,65 +39,140 @@ Faker.seed(DEFAULT_RANDOM_SEED)
 random.seed(DEFAULT_RANDOM_SEED)
 
 
-EMPLOYMENT_TYPES = [
-    "Permanent",
-    "Fixed Term",
-    "Contractor",
-]
-
-GENDERS = [
-    "Female",
-    "Male",
-    "Non-binary",
-    "Prefer not to say",
-]
-
-
-def random_date_between(start_date: date, end_date: date) -> date:
+def random_date_between(
+    start_date: date,
+    end_date: date,
+) -> date:
     """Return a random date between two dates."""
 
-    delta_days = (end_date - start_date).days
+    delta_days = (
+        end_date
+        - start_date
+    ).days
 
     return start_date + timedelta(
-        days=random.randint(0, delta_days)
+        days=random.randint(
+            0,
+            delta_days,
+        )
     )
 
 
-def generate_employee_number(index: int) -> str:
+def generate_employee_number(
+    index: int,
+) -> str:
     """Generate a stable employee number."""
 
     return f"EMP{index:05d}"
 
 
-def generate_salary(job_role: JobRole, multiplier: float = 1.0) -> Decimal:
+def generate_salary(
+    job_role: JobRole,
+    multiplier: float = 1.0,
+) -> Decimal:
     """
     Generate salary within the selected job role salary band.
 
     The multiplier allows senior hierarchy levels to earn more.
     """
 
-    salary_min = int(job_role.salary_band_min)
-    salary_max = int(job_role.salary_band_max)
+    salary_min = int(
+        job_role.salary_band_min
+    )
 
-    salary = random.randint(salary_min, salary_max)
+    salary_max = int(
+        job_role.salary_band_max
+    )
 
-    salary = salary * multiplier
+    salary = random.randint(
+        salary_min,
+        salary_max,
+    )
 
-    return Decimal(salary).quantize(Decimal("0.01"))
+    salary = (
+        salary
+        * multiplier
+    )
+
+    return Decimal(
+        salary
+    ).quantize(
+        Decimal("0.01")
+    )
 
 
 def get_random_reference_data(
     departments: list[Department],
     locations: list[Location],
     job_roles: list[JobRole],
-) -> tuple[Department, Location, JobRole]:
+) -> tuple[
+    Department,
+    Location,
+    JobRole,
+]:
     """Return random department, location and job role."""
 
     return (
-        random.choice(departments),
-        random.choice(locations),
-        random.choice(job_roles),
+        random.choice(
+            departments
+        ),
+        random.choice(
+            locations
+        ),
+        random.choice(
+            job_roles
+        ),
     )
+
+
+def validate_employee_reference_data(
+    departments: list[Department],
+    locations: list[Location],
+    job_roles: list[JobRole],
+    employment_types: list[EmploymentType],
+    genders: list[Gender],
+) -> None:
+    """
+    Confirm all reference datasets required for employee generation
+    contain records.
+    """
+
+    missing: list[str] = []
+
+    if not departments:
+        missing.append(
+            "departments"
+        )
+
+    if not locations:
+        missing.append(
+            "locations"
+        )
+
+    if not job_roles:
+        missing.append(
+            "job_roles"
+        )
+
+    if not employment_types:
+        missing.append(
+            "employment_types"
+        )
+
+    if not genders:
+        missing.append(
+            "genders"
+        )
+
+    if missing:
+        raise ValueError(
+            "Employee simulation is missing required "
+            "reference data: "
+            + ", ".join(
+                missing
+            )
+            + "."
+        )
 
 
 def create_employee(
@@ -95,6 +180,8 @@ def create_employee(
     departments: list[Department],
     locations: list[Location],
     job_roles: list[JobRole],
+    employment_types: list[EmploymentType],
+    genders: list[Gender],
     manager: Employee | None,
     is_manager: bool,
     title_prefix: str | None = None,
@@ -103,32 +190,68 @@ def create_employee(
     """
     Create one Employee ORM object.
 
+    Employment type and gender are sourced from reference-data models.
+
+    Employee.gender and Employee.employment_type remain string fields,
+    preserving the existing database and downstream schemas.
+
     Important:
     Assign the manager relationship directly, not manager_id.
     SQLAlchemy will resolve manager_id during commit.
     """
 
-    department, location, job_role = get_random_reference_data(
+    (
+        department,
+        location,
+        job_role,
+    ) = get_random_reference_data(
         departments=departments,
         locations=locations,
         job_roles=job_roles,
+    )
+
+    employment_type = random.choice(
+        employment_types
+    )
+
+    gender = random.choice(
+        genders
     )
 
     first_name = fake.first_name()
     last_name = fake.last_name()
 
     hire_date = random_date_between(
-        start_date=date.today() - timedelta(days=365 * 3),
+        start_date=(
+            date.today()
+            - timedelta(
+                days=365 * 3
+            )
+        ),
         end_date=date.today(),
     )
 
     date_of_birth = random_date_between(
-        start_date=date.today() - timedelta(days=365 * 60),
-        end_date=date.today() - timedelta(days=365 * 22),
+        start_date=(
+            date.today()
+            - timedelta(
+                days=365 * 60
+            )
+        ),
+        end_date=(
+            date.today()
+            - timedelta(
+                days=365 * 22
+            )
+        ),
     )
 
     employee = Employee(
-        employee_number=generate_employee_number(index),
+        employee_number=(
+            generate_employee_number(
+                index
+            )
+        ),
         first_name=first_name,
         last_name=last_name,
         email=(
@@ -136,27 +259,40 @@ def create_employee(
             f"{last_name.lower()}."
             f"{index}@examplecompany.com"
         ),
-        gender=random.choice(GENDERS),
+        gender=(
+            gender.gender_name
+        ),
         date_of_birth=date_of_birth,
         hire_date=hire_date,
         employment_status="Active",
-        employment_type=random.choice(EMPLOYMENT_TYPES),
+        employment_type=(
+            employment_type
+            .employment_type_name
+        ),
         contract_type="Full Time",
         annual_salary=generate_salary(
             job_role=job_role,
             multiplier=salary_multiplier,
         ),
         currency="GBP",
-        department_id=department.department_id,
-        role_id=job_role.role_id,
-        location_id=location.location_id,
+        department_id=(
+            department.department_id
+        ),
+        role_id=(
+            job_role.role_id
+        ),
+        location_id=(
+            location.location_id
+        ),
         manager=manager,
         is_manager=is_manager,
         is_active=True,
     )
 
     if title_prefix:
-        employee.contract_type = title_prefix
+        employee.contract_type = (
+            title_prefix
+        )
 
     return employee
 
@@ -166,6 +302,8 @@ def generate_employees(
     departments: list[Department],
     locations: list[Location],
     job_roles: list[JobRole],
+    employment_types: list[EmploymentType],
+    genders: list[Gender],
 ) -> list[Employee]:
     """
     Generate employees with a realistic hierarchy.
@@ -176,8 +314,17 @@ def generate_employees(
 
     if count < 20:
         raise ValueError(
-            "Employee count must be at least 20 to generate hierarchy."
+            "Employee count must be at least "
+            "20 to generate hierarchy."
         )
+
+    validate_employee_reference_data(
+        departments=departments,
+        locations=locations,
+        job_roles=job_roles,
+        employment_types=employment_types,
+        genders=genders,
+    )
 
     employees: list[Employee] = []
 
@@ -192,85 +339,139 @@ def generate_employees(
         departments=departments,
         locations=locations,
         job_roles=job_roles,
+        employment_types=employment_types,
+        genders=genders,
         manager=None,
         is_manager=True,
         title_prefix="CEO",
         salary_multiplier=2.5,
     )
 
-    employees.append(ceo)
+    employees.append(
+        ceo
+    )
+
     current_index += 1
 
     # ---------------------------------------------------------
     # Level 2: Executives
     # ---------------------------------------------------------
 
-    executive_count = max(4, int(count * 0.005))
+    executive_count = max(
+        4,
+        int(
+            count * 0.005
+        ),
+    )
 
     executives: list[Employee] = []
 
-    for _ in range(executive_count):
+    for _ in range(
+        executive_count
+    ):
         executive = create_employee(
             index=current_index,
             departments=departments,
             locations=locations,
             job_roles=job_roles,
+            employment_types=employment_types,
+            genders=genders,
             manager=ceo,
             is_manager=True,
             title_prefix="Executive",
             salary_multiplier=2.0,
         )
 
-        executives.append(executive)
-        employees.append(executive)
+        executives.append(
+            executive
+        )
+
+        employees.append(
+            executive
+        )
+
         current_index += 1
 
     # ---------------------------------------------------------
     # Level 3: Directors
     # ---------------------------------------------------------
 
-    director_count = max(10, int(count * 0.02))
+    director_count = max(
+        10,
+        int(
+            count * 0.02
+        ),
+    )
 
     directors: list[Employee] = []
 
-    for _ in range(director_count):
+    for _ in range(
+        director_count
+    ):
         director = create_employee(
             index=current_index,
             departments=departments,
             locations=locations,
             job_roles=job_roles,
-            manager=random.choice(executives),
+            employment_types=employment_types,
+            genders=genders,
+            manager=random.choice(
+                executives
+            ),
             is_manager=True,
             title_prefix="Director",
             salary_multiplier=1.7,
         )
 
-        directors.append(director)
-        employees.append(director)
+        directors.append(
+            director
+        )
+
+        employees.append(
+            director
+        )
+
         current_index += 1
 
     # ---------------------------------------------------------
     # Level 4: Managers
     # ---------------------------------------------------------
 
-    manager_count = max(50, int(count * 0.10))
+    manager_count = max(
+        50,
+        int(
+            count * 0.10
+        ),
+    )
 
     managers: list[Employee] = []
 
-    for _ in range(manager_count):
+    for _ in range(
+        manager_count
+    ):
         manager = create_employee(
             index=current_index,
             departments=departments,
             locations=locations,
             job_roles=job_roles,
-            manager=random.choice(directors),
+            employment_types=employment_types,
+            genders=genders,
+            manager=random.choice(
+                directors
+            ),
             is_manager=True,
             title_prefix="Manager",
             salary_multiplier=1.3,
         )
 
-        managers.append(manager)
-        employees.append(manager)
+        managers.append(
+            manager
+        )
+
+        employees.append(
+            manager
+        )
+
         current_index += 1
 
     # ---------------------------------------------------------
@@ -283,13 +484,20 @@ def generate_employees(
             departments=departments,
             locations=locations,
             job_roles=job_roles,
-            manager=random.choice(managers),
+            employment_types=employment_types,
+            genders=genders,
+            manager=random.choice(
+                managers
+            ),
             is_manager=False,
             title_prefix="Full Time",
             salary_multiplier=1.0,
         )
 
-        employees.append(employee)
+        employees.append(
+            employee
+        )
+
         current_index += 1
 
     return employees

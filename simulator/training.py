@@ -4,6 +4,9 @@ Training simulation module.
 Training records are generated only inside each employee's employment
 window.
 
+Training categories are supplied from PostgreSQL reference tables seeded
+from YAML reference data.
+
 Completed training:
 - starts during employment;
 - completion_date cannot exceed termination_date/today.
@@ -20,7 +23,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from config.constants import DEFAULT_RANDOM_SEED, HISTORICAL_YEARS
-from database.models import Employee, Training
+from database.models import (
+    Employee,
+    Training,
+    TrainingCategory,
+)
 from simulator.effective_dates import employment_end_date
 
 
@@ -137,13 +144,51 @@ def random_training_date(
     )
 
 
+def get_training_category_name(
+    category_name: str,
+    training_categories: list[TrainingCategory],
+) -> str:
+    """
+    Resolve a course category against the governed reference dataset.
+
+    Course definitions remain local to this simulator for now.
+    Only the category vocabulary is reference-data driven.
+    """
+
+    for category in training_categories:
+        if (
+            category.training_category_name
+            == category_name
+        ):
+            return (
+                category
+                .training_category_name
+            )
+
+    raise ValueError(
+        "Training course references unknown "
+        f"training category: '{category_name}'."
+    )
+
+
 def generate_training(
     employees: list[Employee],
+    training_categories: list[TrainingCategory],
 ) -> list[Training]:
     """
     Generate training records without constructing records outside the
     employee's valid employment period.
+
+    Training categories are resolved against centrally governed
+    PostgreSQL reference data.
     """
+
+    if not training_categories:
+        raise ValueError(
+            "Training simulation requires training-category "
+            "reference data. "
+            "Run python -m database.seed first."
+        )
 
     records: list[Training] = []
 
@@ -170,9 +215,19 @@ def generate_training(
         for _ in range(
             training_count
         ):
-            course_name, category = (
-                random.choice(
-                    COURSES
+            (
+                course_name,
+                category_name,
+            ) = random.choice(
+                COURSES
+            )
+
+            category = (
+                get_training_category_name(
+                    category_name=category_name,
+                    training_categories=(
+                        training_categories
+                    ),
                 )
             )
 
@@ -198,9 +253,6 @@ def generate_training(
 
             if completed:
 
-                # Original course duration remains 1-30 days, but the
-                # completion date is capped at the employee's employment
-                # boundary.
                 proposed_completion = (
                     start_date
                     + timedelta(
@@ -216,10 +268,6 @@ def generate_training(
                     valid_end,
                 )
 
-                # If start_date is the employee's final employment day,
-                # there is no valid later completion date. Treat this
-                # training as in progress instead of inventing an
-                # after-termination completion.
                 if (
                     completion_date
                     <= start_date
@@ -231,7 +279,10 @@ def generate_training(
                 Training(
                     employee=employee,
                     course_name=course_name,
+
+                    # Still stored as the existing string field.
                     course_category=category,
+
                     provider=random.choice(
                         [
                             "Internal Academy",

@@ -21,23 +21,32 @@ from config.constants import INITIAL_EMPLOYEE_COUNT
 from config.logger import logger
 from database.connection import get_session
 from database.models import (
+    AbsenceReason,
     Attendance,
+    AttendanceStatus,
     Department,
     Employee,
     EmployeeExit,
     EmployeeSurvey,
+    EmploymentType,
     ExitInterview,
+    ExitReason,
+    Gender,
     JobRole,
     LeaveRequest,
+    LeaveType,
     Location,
     ManagerFeedback,
     Payroll,
     PerformanceReview,
     Promotion,
+    PublicHoliday,
     Recruitment,
     Training,
+    TrainingCategory,
     Transfer,
 )
+
 from simulator.attendance import generate_attendance
 from simulator.employees import generate_employees
 from simulator.exits import generate_employee_exits
@@ -54,40 +63,167 @@ from simulator.transfer import generate_transfers
 
 
 def load_reference_data(session):
-    """Load required lookup/reference records."""
+    """
+    Load all lookup/reference records currently consumed by simulator
+    modules.
 
-    departments = session.query(Department).all()
-    locations = session.query(Location).all()
-    job_roles = session.query(JobRole).all()
+    Reference data is seeded from YAML into PostgreSQL before simulation.
+    """
 
-    if not departments:
+    departments = (
+        session.query(
+            Department
+        )
+        .all()
+    )
+
+    locations = (
+        session.query(
+            Location
+        )
+        .all()
+    )
+
+    job_roles = (
+        session.query(
+            JobRole
+        )
+        .all()
+    )
+
+    employment_types = (
+        session.query(
+            EmploymentType
+        )
+        .all()
+    )
+
+    genders = (
+        session.query(
+            Gender
+        )
+        .all()
+    )
+
+    attendance_statuses = (
+        session.query(
+            AttendanceStatus
+        )
+        .all()
+    )
+
+    absence_reasons = (
+        session.query(
+            AbsenceReason
+        )
+        .all()
+    )
+
+    public_holidays = (
+        session.query(
+            PublicHoliday
+        )
+        .all()
+    )
+
+    leave_types = (
+        session.query(
+            LeaveType
+        )
+        .all()
+    )
+
+    training_categories = (
+        session.query(
+            TrainingCategory
+        )
+        .all()
+    )
+
+    exit_reasons = (
+        session.query(
+            ExitReason
+        )
+        .all()
+    )
+
+    reference_datasets = {
+        "departments": departments,
+        "locations": locations,
+        "job_roles": job_roles,
+        "employment_types": employment_types,
+        "genders": genders,
+        "attendance_statuses": attendance_statuses,
+        "absence_reasons": absence_reasons,
+        "public_holidays": public_holidays,
+        "leave_types": leave_types,
+        "training_categories": training_categories,
+        "exit_reasons": exit_reasons,
+    }
+
+    missing = [
+        dataset_name
+        for (
+            dataset_name,
+            records,
+        ) in reference_datasets.items()
+        if not records
+    ]
+
+    if missing:
         raise ValueError(
-            "No departments found. Run python -m database.seed first."
+            "Missing required simulator reference data: "
+            + ", ".join(
+                missing
+            )
+            + ". Run python -m database.seed first."
         )
 
-    if not locations:
-        raise ValueError(
-            "No locations found. Run python -m database.seed first."
-        )
+    logger.info(
+        "Reference data loaded | "
+        f"Departments={len(departments)} | "
+        f"Locations={len(locations)} | "
+        f"JobRoles={len(job_roles)} | "
+        f"EmploymentTypes={len(employment_types)} | "
+        f"Genders={len(genders)} | "
+        f"AttendanceStatuses={len(attendance_statuses)} | "
+        f"AbsenceReasons={len(absence_reasons)} | "
+        f"PublicHolidays={len(public_holidays)} | "
+        f"LeaveTypes={len(leave_types)} | "
+        f"TrainingCategories={len(training_categories)} | "
+        f"ExitReasons={len(exit_reasons)}"
+    )
 
-    if not job_roles:
-        raise ValueError(
-            "No job roles found. Run python -m database.seed first."
-        )
+    return (
+        departments,
+        locations,
+        job_roles,
+        employment_types,
+        genders,
+        attendance_statuses,
+        absence_reasons,
+        public_holidays,
+        leave_types,
+        training_categories,
+        exit_reasons,
+    )
 
-    return departments, locations, job_roles
 
-
-def full_refresh_generated_data(session) -> None:
+def full_refresh_generated_data(
+    session,
+) -> None:
     """
     Remove all generated operational data.
 
-    employee_exits is included before employees so the new exit-event
+    Reference-data tables are intentionally preserved.
+
+    employee_exits is included before employees so the exit-event
     foreign key is cleared as part of the existing full-refresh process.
     """
 
     logger.warning(
-        "Full refresh requested. Clearing generated data..."
+        "Full refresh requested. "
+        "Clearing generated data..."
     )
 
     session.execute(
@@ -119,10 +255,19 @@ def full_refresh_generated_data(session) -> None:
     )
 
 
-def table_is_empty(session, model) -> bool:
+def table_is_empty(
+    session,
+    model,
+) -> bool:
     """Return True when the supplied table contains no records."""
 
-    return session.query(model).count() == 0
+    return (
+        session.query(
+            model
+        )
+        .count()
+        == 0
+    )
 
 
 def run_generation_step(
@@ -138,23 +283,37 @@ def run_generation_step(
     preserving the simulator's current behaviour.
     """
 
-    if table_is_empty(session, model):
+    if table_is_empty(
+        session,
+        model,
+    ):
         records = generator()
 
-        session.add_all(records)
+        session.add_all(
+            records
+        )
+
         session.commit()
 
         logger.info(
-            f"Generated {len(records)} {name} records."
+            f"Generated "
+            f"{len(records):,} "
+            f"{name} records."
         )
 
         return records
 
     logger.warning(
-        f"{name.title()} already exists. Skipping."
+        f"{name.title()} "
+        "already exists. Skipping."
     )
 
-    return session.query(model).all()
+    return (
+        session.query(
+            model
+        )
+        .all()
+    )
 
 
 def run_simulation(
@@ -163,11 +322,31 @@ def run_simulation(
     """
     Run the complete People Analytics simulation.
 
-    EmployeeExit is generated before ExitInterview.
+    Current reference-data migrations:
 
-    Exit interviews are supplied only employees who actually have an
-    exit event, ensuring that interviews cannot create employee exits
-    independently.
+    Employee:
+        EmploymentType
+        Gender
+
+    Recruitment employees:
+        EmploymentType
+        Gender
+
+    Attendance:
+        AttendanceStatus
+        AbsenceReason
+        PublicHoliday
+
+    Leave:
+        LeaveType
+
+    Training:
+        TrainingCategory
+
+    Employee exits:
+        ExitReason
+
+    Existing operational table schemas remain unchanged.
     """
 
     logger.info(
@@ -175,21 +354,33 @@ def run_simulation(
     )
 
     logger.info(
-        f"Configured employee count: {INITIAL_EMPLOYEE_COUNT}"
+        f"Configured employee count: "
+        f"{INITIAL_EMPLOYEE_COUNT}"
     )
 
     session = get_session()
 
     try:
+
         if full_refresh:
             full_refresh_generated_data(
                 session
             )
 
-        departments, locations, job_roles = (
-            load_reference_data(
-                session
-            )
+        (
+            departments,
+            locations,
+            job_roles,
+            employment_types,
+            genders,
+            attendance_statuses,
+            absence_reasons,
+            public_holidays,
+            leave_types,
+            training_categories,
+            exit_reasons,
+        ) = load_reference_data(
+            session
         )
 
         # ---------------------------------------------------------------
@@ -200,11 +391,16 @@ def run_simulation(
             session,
             Employee,
         ):
+
             employees = generate_employees(
                 count=INITIAL_EMPLOYEE_COUNT,
                 departments=departments,
                 locations=locations,
                 job_roles=job_roles,
+                employment_types=(
+                    employment_types
+                ),
+                genders=genders,
             )
 
             session.add_all(
@@ -214,32 +410,35 @@ def run_simulation(
             session.commit()
 
             logger.info(
-                f"Generated {len(employees)} employees."
+                f"Generated "
+                f"{len(employees):,} "
+                "employees."
             )
 
         else:
             logger.warning(
-                "Employees already exist. Skipping."
+                "Employees already exist. "
+                "Skipping."
             )
 
         employees = (
-            session.query(Employee)
+            session.query(
+                Employee
+            )
             .all()
         )
 
         # ---------------------------------------------------------------
-        # Recruitment must run before employee-level transactional facts.
+        # Recruitment.
         #
-        # Filled vacancies now create real Employee master records.
-        # Those employees must therefore be committed and added to the
-        # working population before attendance, payroll, leave, training,
-        # reviews and other downstream records are generated.
+        # Filled vacancies create additional real Employee records.
         # ---------------------------------------------------------------
 
         if table_is_empty(
             session,
             Recruitment,
         ):
+
             (
                 recruitment_records,
                 recruited_employees,
@@ -248,10 +447,12 @@ def run_simulation(
                 job_roles=job_roles,
                 locations=locations,
                 employees=employees,
+                employment_types=(
+                    employment_types
+                ),
+                genders=genders,
             )
 
-            # Add both sides explicitly. Recruitment.successful_employee
-            # links each filled campaign to the Employee created from it.
             session.add_all(
                 recruited_employees
             )
@@ -263,131 +464,160 @@ def run_simulation(
             session.commit()
 
             logger.info(
-                f"Generated {len(recruitment_records)} recruitment records."
+                f"Generated "
+                f"{len(recruitment_records):,} "
+                "recruitment records."
             )
 
             logger.info(
-                f"Created {len(recruited_employees)} employees from filled vacancies."
+                f"Created "
+                f"{len(recruited_employees):,} "
+                "employees from filled vacancies."
             )
 
         else:
             logger.warning(
-                "Recruitment already exists. Skipping."
+                "Recruitment already exists. "
+                "Skipping."
             )
 
-        # Refresh the authoritative employee population so all recruited
-        # hires participate in subsequent simulation steps.
+        # Refresh authoritative workforce after recruitment.
         employees = (
-            session.query(Employee)
+            session.query(
+                Employee
+            )
             .all()
         )
 
         logger.info(
-            f"Employee population after recruitment: {len(employees)}"
+            "Employee population after recruitment: "
+            f"{len(employees):,}"
         )
-
-        # ---------------------------------------------------------------
-        # Establish termination dates before generating employee facts.
-        #
-        # This makes every downstream generator aware of the employee's
-        # complete employment window.
-        # ---------------------------------------------------------------
 
         # ---------------------------------------------------------------
         # Employee exits.
         #
-        # This is now the only simulation step responsible for changing:
-        #
-        # - Employee.termination_date
-        # - Employee.employment_status
-        # - Employee.is_active
-        #
-        # The corresponding EmployeeExit record preserves the event.
+        # Exits must occur before downstream employment-window facts.
         # ---------------------------------------------------------------
 
-        exit_records = run_generation_step(
-            session=session,
-            name="employee exits",
-            model=EmployeeExit,
-            generator=lambda: (
-                generate_employee_exits(
-                    employees
-                )
-            ),
+        exit_records = (
+            run_generation_step(
+                session=session,
+                name="employee exits",
+                model=EmployeeExit,
+                generator=lambda: (
+                    generate_employee_exits(
+                        employees=employees,
+                        exit_reasons=(
+                            exit_reasons
+                        ),
+                    )
+                ),
+            )
         )
 
         # ---------------------------------------------------------------
         # Operational generation steps.
-        #
-        # Promotions and transfers update Employee current state while
-        # retaining their before/after event history.
         # ---------------------------------------------------------------
 
         generation_steps = [
             (
                 "attendance",
                 Attendance,
-                lambda: generate_attendance(
-                    employees
+                lambda: (
+                    generate_attendance(
+                        employees=employees,
+                        attendance_statuses=(
+                            attendance_statuses
+                        ),
+                        absence_reasons=(
+                            absence_reasons
+                        ),
+                        public_holidays=(
+                            public_holidays
+                        ),
+                    )
                 ),
             ),
             (
                 "payroll",
                 Payroll,
-                lambda: generate_payroll(
-                    employees
+                lambda: (
+                    generate_payroll(
+                        employees
+                    )
                 ),
             ),
             (
                 "leave requests",
                 LeaveRequest,
-                lambda: generate_leave_requests(
-                    employees
+                lambda: (
+                    generate_leave_requests(
+                        employees=employees,
+                        leave_types=(
+                            leave_types
+                        ),
+                    )
                 ),
             ),
             (
                 "training",
                 Training,
-                lambda: generate_training(
-                    employees
+                lambda: (
+                    generate_training(
+                        employees=employees,
+                        training_categories=(
+                            training_categories
+                        ),
+                    )
                 ),
             ),
             (
                 "performance reviews",
                 PerformanceReview,
-                lambda: generate_performance_reviews(
-                    employees
+                lambda: (
+                    generate_performance_reviews(
+                        employees
+                    )
                 ),
             ),
             (
                 "promotions",
                 Promotion,
-                lambda: generate_promotions(
-                    employees,
-                    job_roles,
+                lambda: (
+                    generate_promotions(
+                        employees,
+                        job_roles,
+                    )
                 ),
             ),
             (
                 "transfers",
                 Transfer,
-                lambda: generate_transfers(
-                    employees,
-                    departments,
-                    locations,
+                lambda: (
+                    generate_transfers(
+                        employees,
+                        departments,
+                        locations,
+                    )
                 ),
             ),
             (
                 "employee surveys",
                 EmployeeSurvey,
-                lambda: generate_employee_surveys(
-                    employees
+                lambda: (
+                    generate_employee_surveys(
+                        employees
+                    )
                 ),
             ),
             (
                 "manager feedback",
                 ManagerFeedback,
-                lambda: generate_manager_feedback(
-                    employees
+                lambda: (
+                    generate_manager_feedback(
+                        employees
+                    )
                 ),
             ),
         ]
@@ -397,6 +627,7 @@ def run_simulation(
             model,
             generator,
         ) in generation_steps:
+
             run_generation_step(
                 session=session,
                 name=name,
@@ -407,10 +638,7 @@ def run_simulation(
         # ---------------------------------------------------------------
         # Exit interviews.
         #
-        # EmployeeExit is now the authoritative source for exit
-        # interviews. The interview generator therefore receives the
-        # EmployeeExit events directly rather than selecting leavers or
-        # deriving termination dates independently.
+        # EmployeeExit remains the authoritative event source.
         # ---------------------------------------------------------------
 
         run_generation_step(
@@ -425,13 +653,15 @@ def run_simulation(
         )
 
         logger.info(
-            "People analytics simulation completed successfully."
+            "People analytics simulation "
+            "completed successfully."
         )
 
     except (
         SQLAlchemyError,
         ValueError,
     ) as error:
+
         session.rollback()
 
         logger.error(
@@ -473,5 +703,7 @@ if __name__ == "__main__":
     args = parse_args()
 
     run_simulation(
-        full_refresh=args.full_refresh
+        full_refresh=(
+            args.full_refresh
+        )
     )
