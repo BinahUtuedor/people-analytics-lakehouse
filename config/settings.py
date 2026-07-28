@@ -12,6 +12,7 @@ environment variables directly.
 from dotenv import load_dotenv
 import os
 
+
 load_dotenv()
 
 
@@ -41,7 +42,10 @@ class Settings:
     )
 
     POSTGRES_PORT = int(
-        os.getenv("POSTGRES_PORT")
+        os.getenv(
+            "POSTGRES_PORT",
+            "5432",
+        )
     )
 
     POSTGRES_DATABASE = os.getenv(
@@ -91,9 +95,8 @@ class Settings:
 
     # AWS credentials.
     #
-    # Boto3 automatically detects these standard environment
-    # variables, so they do not need to be passed manually when
-    # creating an S3 client.
+    # Boto3 and Hadoop S3A can consume these standard
+    # environment variables.
     AWS_ACCESS_KEY_ID = os.getenv(
         "AWS_ACCESS_KEY_ID"
     )
@@ -104,6 +107,38 @@ class Settings:
 
     AWS_SESSION_TOKEN = os.getenv(
         "AWS_SESSION_TOKEN"
+    )
+
+    # ======================================================
+    # Spark
+    # ======================================================
+
+    SPARK_APP_NAME = os.getenv(
+        "SPARK_APP_NAME",
+        "people-analytics-lakehouse",
+    )
+
+    SPARK_MASTER = os.getenv(
+        "SPARK_MASTER",
+        "local[*]",
+    )
+
+    SPARK_LOG_LEVEL = os.getenv(
+        "SPARK_LOG_LEVEL",
+        "WARN",
+    )
+
+    # Optional Maven packages supplied when the Spark installation
+    # does not already contain the Hadoop S3A connector.
+    #
+    # Example:
+    #
+    # org.apache.hadoop:hadoop-aws:<matching-hadoop-version>
+    #
+    # Do not hard-code the version here. It must be compatible with
+    # the Hadoop version bundled with the Spark installation.
+    SPARK_JARS_PACKAGES = os.getenv(
+        "SPARK_JARS_PACKAGES"
     )
 
     # ======================================================
