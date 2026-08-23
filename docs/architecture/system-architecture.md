@@ -2,1127 +2,594 @@
 
 ## Overview
 
-The **People Analytics Lakehouse Platform** is an end-to-end enterprise data platform designed to simulate, validate, ingest, transform, govern, analyse and securely share workforce data.
+The **People Analytics Lakehouse Platform** is an end-to-end enterprise
+data platform designed to simulate, validate, ingest, transform, govern,
+analyse and securely share synthetic workforce data.
 
-The architecture separates the operational HR source system from analytical processing and consumption workloads.
+The architecture separates the operational HR source system from
+analytical processing and consumption workloads.
 
 The platform is built around:
 
-* Python and SQLAlchemy for synthetic HR data generation
-* PostgreSQL as the operational HR source system
-* Amazon S3 as the immutable Raw data lake
-* Databricks on AWS for scalable lakehouse processing
-* Delta Lake for Bronze and Silver managed tables
-* PySpark for Raw-to-Bronze and Bronze-to-Silver engineering
-* dbt-databricks for Silver-to-Gold analytical modelling
-* Unity Catalog for lakehouse technical governance
-* Airflow for production workflow orchestration
-* Power BI for business intelligence
-* FastAPI for governed data-product delivery
-* Terraform for infrastructure provisioning
-* GitHub Actions for CI/CD
+-   Python and SQLAlchemy for synthetic HR data generation;
+-   PostgreSQL as the operational HR source system;
+-   governed YAML reference data;
+-   Python-based data-quality controls;
+-   Parquet for portable analytical storage;
+-   Amazon S3 as the cloud data lake;
+-   Apache Spark, PySpark and Spark SQL for distributed processing;
+-   Amazon EMR as the managed Spark execution environment;
+-   Amazon S3 events and AWS Lambda for event-driven processing;
+-   dbt for selected Gold analytical models and tests;
+-   Power BI for business intelligence;
+-   FastAPI for governed data-product delivery;
+-   Terraform for AWS infrastructure provisioning;
+-   GitHub Actions for CI/CD.
 
----
+------------------------------------------------------------------------
 
 # End-to-End System Architecture
 
-```text
-                         GOVERNED REFERENCE DATA
-                                  │
-                                  ▼
-                         reference_data/*.yml
-                                  │
-                                  ▼
-                        Reference Data Loader
-                                  │
-                                  ▼
-                      Reference Data Validation
-                                  │
-                                  ▼
-                       PostgreSQL Lookup Tables
-                                  │
-                                  ▼
-
+``` text
+                    GOVERNED REFERENCE DATA
+                              │
+                              ▼
+                    reference_data/*.yml
+                              │
+                              ▼
+                 Loader → Validation → Seed
+                              │
+                              ▼
+                    PostgreSQL Lookups
+                              │
+                              ▼
 ─────────────────────────────────────────────────────────────
-
-                         OPERATIONAL HRIS
-                                  │
-                                  ▼
-                         Python Simulator
-                                  │
-                                  ▼
-                    PostgreSQL Operational DB
-                        people_analytics
-                          public schema
-                                  │
-                                  ▼
-                   Operational Data Quality
-                                  │
-                                  ▼
-
+                       OPERATIONAL HRIS
+                              │
+                              ▼
+                     Python Simulator
+                              │
+                              ▼
+                  PostgreSQL Operational DB
+                              │
+                              ▼
+                  Operational Data Quality
+                              │
+                              ▼
 ─────────────────────────────────────────────────────────────
-
-                           RAW INGESTION
-                                  │
-                                  ▼
-                     Python Extraction Layer
-                                  │
-                                  ▼
-                       Local Raw Parquet
-                                  │
-                                  ▼
-                  Source-to-Raw Reconciliation
-                                  │
-                                  ▼
-                         Amazon S3 Raw
-                       Immutable Parquet
-                                  │
-                                  ▼
-
+                         RAW INGESTION
+                              │
+                              ▼
+                     Python Extraction
+                              │
+                              ▼
+                       Raw Parquet
+                              │
+                              ▼
+                    Raw Reconciliation
+                              │
+                              ▼
+                       Amazon S3 Raw
+                              │
 ─────────────────────────────────────────────────────────────
-
-                       DATABRICKS ON AWS
-                                  │
-                                  ▼
-                           Bronze Layer
-                         Delta Lake Tables
-                                  │
-                                  ▼
-                           Silver Layer
-                         Delta Lake Tables
-                                  │
-                                  ▼
-                         dbt-databricks
-                                  │
-                                  ▼
-                            Gold Layer
-                  Facts / Dimensions / Marts
-                                  │
-                   ┌──────────────┼──────────────┐
-                   ▼              ▼              ▼
-               Power BI      Analytics / ML   Data Products
-                                                  │
-                                                  ▼
-                                           Access Governance
-                                                  │
-                                                  ▼
-                                               FastAPI
-                                                  │
-                                                  ▼
-                                         Approved Consumers
-
+                  DISTRIBUTED DATA PROCESSING
+                              │
+                 S3 ObjectCreated event
+                              ▼
+                         AWS Lambda
+                              │
+                              ▼
+                         Amazon EMR
+                              │
+                              ▼
+                     PySpark Bronze
+                              │
+                              ▼
+                PySpark + Spark SQL Silver
+                              │
+                              ▼
 ─────────────────────────────────────────────────────────────
-
-                         GOVERNANCE PLANE
-
-                   Unity Catalog
-                        +
-                   Metadata Framework
-                        +
-                 Enterprise Catalogue
-                        +
-                    Data Quality
-                        +
-                 Lineage & Ownership
+                    ANALYTICAL DATA PRODUCTS
+                              │
+                              ▼
+                              Gold
+                              │
+     ┌────────────────────────┼────────────────────────┐
+     ▼                        ▼                        ▼
+ Workforce / Recruitment   Learning / Performance   Payroll / Attrition
+     │                        │                        │
+     └────────────────────────┼────────────────────────┘
+                              ▼
+                        dbt Models
+                              │
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+         Power BI        Analytics / ML    Governed API
+                                               │
+                                               ▼
+                                      Approved Consumers
 ```
 
----
+------------------------------------------------------------------------
 
-# Architecture Layers
+# 1. Operational Layer
 
-## 1. Reference Data Layer
+The operational layer simulates an enterprise HRIS.
 
-The platform uses centrally governed reference data to provide consistent business values across the operational simulator and downstream processing.
+It includes:
 
-Reference datasets include:
+-   the synthetic workforce simulator;
+-   PostgreSQL;
+-   governed reference data;
+-   workforce lifecycle events;
+-   employee current state.
 
-* business units;
-* departments;
-* locations;
-* job roles;
-* employment types;
-* genders;
-* attendance statuses;
-* absence reasons;
-* public holidays;
-* leave types;
-* training categories;
-* employee exit reasons.
+The simulator generates realistic relationships and temporal behaviour
+across recruitment, attendance, leave, payroll, training, performance,
+movement and employee exits.
 
-The processing flow is:
+------------------------------------------------------------------------
 
-```text
+# 2. Reference Data Layer
+
+Controlled vocabularies are managed centrally.
+
+``` text
 YAML
-  │
-  ▼
-Reference Loader
-  │
-  ▼
-Reference Validation
-  │
-  ▼
+  ↓
+Loader
+  ↓
+Validation
+  ↓
 PostgreSQL Reference Tables
-  │
-  ▼
+  ↓
 Simulator
 ```
 
-This ensures controlled business values are maintained independently from simulation logic.
+This removes duplicated hard-coded controlled values from migrated
+simulator modules and provides a single governed source.
 
----
+------------------------------------------------------------------------
 
-## 2. Operational Layer
+# 3. Data Quality Layer
 
-The operational layer simulates an enterprise Human Resources Information System.
+Quality controls operate as pipeline gates.
 
-The simulator produces interconnected workforce data covering the employee lifecycle.
+Current operational checks include:
 
-Current operational domains include:
+-   duplicate detection;
+-   referential integrity;
+-   hierarchy validation;
+-   salary and payroll rules;
+-   lifecycle reconciliation;
+-   employment-date validation;
+-   reference-data validation.
 
-* employees;
-* recruitment;
-* attendance;
-* payroll;
-* leave;
-* training;
-* promotions;
-* transfers;
-* performance reviews;
-* employee surveys;
-* manager feedback;
-* employee exits;
-* exit interviews.
+Future Bronze, Silver and Gold controls extend validation across the
+analytical layers.
 
-PostgreSQL stores the current workforce state together with historical workforce events.
+------------------------------------------------------------------------
 
-```text
-Simulator
-    │
-    ▼
+# 4. Raw Ingestion Layer
+
+PostgreSQL is extracted to Parquet through Python.
+
+``` text
 PostgreSQL
-    │
-    ├── Reference Data
-    ├── Employee Master
-    ├── Workforce Events
-    └── Operational Facts
-```
-
-PostgreSQL is treated as the operational source system rather than the analytical warehouse.
-
----
-
-## 3. Data Quality Layer
-
-Data quality operates as a set of pipeline gates rather than a reporting-only capability.
-
-Operational validation currently includes:
-
-* duplicate detection;
-* referential integrity;
-* employee hierarchy checks;
-* salary validation;
-* payroll validation;
-* recruitment lifecycle reconciliation;
-* promotion-state reconciliation;
-* transfer-state reconciliation;
-* employee-exit reconciliation;
-* employment-window validation;
-* reference-data validation.
-
-The flow is:
-
-```text
-PostgreSQL
-     │
-     ▼
-Quality Validation
-     │
-     ├── PASS → extraction continues
-     │
-     └── FAIL → pipeline stops
-```
-
-Quality controls are extended at later lakehouse boundaries.
-
----
-
-## 4. Raw Ingestion Layer
-
-The Raw ingestion layer moves validated operational data from PostgreSQL into Amazon S3.
-
-The implemented flow is:
-
-```text
-PostgreSQL
-     │
-     ▼
-etl/extract.py
-     │
-     ▼
-Local Parquet
-     │
-     ▼
-quality/raw_extraction_validation.py
-     │
-     ▼
-etl/export_s3.py
-     │
-     ▼
+    ↓
+Python Extraction
+    ↓
+Local Raw Parquet
+    ↓
+Source-to-Raw Reconciliation
+    ↓
 Amazon S3 Raw
 ```
 
-Raw datasets carry extraction and batch metadata to support lineage and reproducibility.
+Raw is immutable, source-aligned, batch-traceable and replayable.
 
-The Raw layer is:
+------------------------------------------------------------------------
 
-* source aligned;
-* immutable;
-* replayable;
-* minimally transformed;
-* batch traceable.
+# 5. Bronze Layer
 
----
+Bronze is the next implementation priority.
 
-## 5. Amazon S3 Data Lake
+The same Spark job should run locally and through `spark-submit` on
+Amazon EMR.
 
-Amazon S3 provides durable cloud storage for the platform.
-
-The Raw zone acts as the persistent source archive.
-
-A logical layout is:
-
-```text
-s3://people-analytics-lakehouse/
-
-└── raw/
-    └── postgresql/
-        ├── employees/
-        ├── attendance/
-        ├── payroll/
-        ├── leave_requests/
-        ├── recruitment/
-        └── ...
-```
-
-Each source table is organised by extraction metadata and batch identity.
-
-The Raw zone provides the recovery point from which downstream lakehouse tables can be rebuilt.
-
----
-
-## 6. Databricks Lakehouse Layer
-
-Databricks on AWS provides the scalable processing environment for the analytical platform.
-
-Databricks is responsible for:
-
-* Apache Spark processing;
-* Delta Lake table management;
-* Bronze processing;
-* Silver processing;
-* managed SQL workloads;
-* lakehouse technical governance;
-* lineage integration;
-* machine-learning integration.
-
-The transformation boundary is:
-
-```text
-Amazon S3 Raw
-      │
-      ▼
-Databricks
-      │
-      ▼
-Bronze
-      │
-      ▼
-Silver
-```
-
----
-
-# 7. Bronze Layer
-
-The Bronze layer is the first governed lakehouse representation of the Raw data.
-
-Bronze preserves source business values while introducing technical controls.
-
-Typical Bronze responsibilities include:
-
-* source schema preservation;
-* schema enforcement;
-* source-file tracking;
-* ingestion timestamps;
-* batch identity;
-* extraction metadata;
-* structural validation;
-* controlled schema evolution.
-
-The flow is:
-
-```text
-Raw Parquet
-     │
-     ▼
+``` text
+S3 Raw
+   ↓
 PySpark
-     │
-     ▼
-Bronze Delta
+   ↓
+Technical Metadata
+   ↓
+Record Hashing
+   ↓
+Structural Validation
+   ↓
+S3 Bronze
 ```
 
-Typical lineage columns include:
+Bronze preserves source business values and adds technical lineage.
 
-```text
-_source_system
-_source_table
-_source_file
-_extraction_date
-_batch_id
-_bronze_ingested_at
-```
+------------------------------------------------------------------------
 
-Bronze does not perform significant business transformation.
+# 6. Silver Layer
 
----
+Silver creates trusted analytical entities.
 
-# 8. Silver Layer
-
-The Silver layer provides trusted, standardised and reusable business entities.
-
-Silver processing is implemented through PySpark and Databricks.
-
-Typical responsibilities include:
-
-* data-type standardisation;
-* deduplication;
-* null handling;
-* controlled-value conformity;
-* validated joins;
-* business-key validation;
-* date standardisation;
-* reusable workforce entities;
-* conformed event structures.
-
-The flow is:
-
-```text
-Bronze Delta
-      │
-      ▼
-PySpark
-      │
-      ▼
-Silver Delta
-```
-
-Silver becomes the primary trusted source for downstream analytical modelling.
-
----
-
-# 9. Analytics Engineering Layer
-
-dbt-databricks owns the transformation from Silver to Gold.
-
-```text
-Silver
-   │
-   ▼
-dbt-databricks
-   │
-   ▼
-Gold
-```
-
-Gold contains analytical structures such as:
-
-### Dimensions
-
-* employee;
-* department;
-* job role;
-* location;
-* date.
-
-### Facts
-
-* attendance;
-* payroll;
-* leave;
-* recruitment;
-* promotions;
-* training.
-
-### Business Marts
-
-* workforce;
-* attendance;
-* finance;
-* recruitment;
-* learning and development.
-
-dbt provides:
-
-* modular SQL transformations;
-* dependency management;
-* analytical tests;
-* documentation;
-* lineage;
-* reusable business logic.
-
----
-
-# 10. Gold Layer
-
-Gold represents business-ready data products.
-
-Gold datasets are designed around business consumption rather than source-system structure.
-
-Typical consumers include:
-
-* Power BI;
-* analytical notebooks;
-* machine-learning models;
-* internal data products;
-* governed APIs.
-
-```text
-Silver
-   │
-   ▼
-dbt
-   │
-   ▼
-Gold
-   │
-   ├── Dimensions
-   ├── Facts
-   └── Marts
-```
-
-Gold is the default analytical consumption layer.
-
----
-
-# 11. Governance Layer
-
-Governance operates across the platform rather than existing as a single downstream step.
-
-The governance architecture combines:
-
-* Unity Catalog;
-* metadata definitions;
-* enterprise catalogue;
-* data quality;
-* ownership;
-* classification;
-* lineage;
-* data-product governance.
-
----
-
-## Unity Catalog
-
-Unity Catalog provides technical governance for Databricks assets.
+Processing uses both PySpark DataFrame APIs and Spark SQL.
 
 Responsibilities include:
 
-* catalogs;
-* schemas;
-* tables;
-* views;
-* permissions;
-* technical lineage.
+-   schema enforcement;
+-   type standardisation;
+-   deduplication;
+-   null handling;
+-   reference-data conformity;
+-   validated joins;
+-   business rules;
+-   effective-date logic;
+-   integrated workforce entities.
 
-A logical namespace may follow:
+------------------------------------------------------------------------
 
-```text
-people_analytics
-│
-├── bronze
-├── silver
-└── gold
+# 7. Gold Layer
+
+Gold is explicitly data-product oriented.
+
+``` text
+Gold
+├── Workforce Analytics
+├── Recruitment Analytics
+├── Learning Analytics
+├── Performance Analytics
+├── Payroll Analytics
+└── Attrition Analytics
 ```
 
----
+Gold provides business-ready datasets for reporting, analytical
+applications and governed sharing.
 
-## Enterprise Metadata Catalogue
+dbt can be used to manage SQL-based Gold models, dependencies, tests,
+documentation and reusable metrics.
 
-The custom metadata catalogue provides cross-platform business governance.
+------------------------------------------------------------------------
 
-It covers:
+# 8. Amazon EMR
 
-* business definitions;
-* ownership;
-* classification;
-* quality metrics;
-* cross-platform lineage;
-* data products;
-* external access metadata.
+Amazon EMR provides the managed Spark runtime for cloud processing.
 
-This complements Unity Catalog rather than duplicating it.
+The architecture keeps Spark code portable:
 
----
-
-# 12. Metadata and Lineage
-
-The platform maintains traceability from source to consumption.
-
-The target lineage chain is:
-
-```text
-Reference Data
+``` text
+Local PySpark
+      │
+      │ same job entry point
+      ▼
+spark-submit
       │
       ▼
-PostgreSQL
-      │
-      ▼
-S3 Raw Batch
-      │
-      ▼
-Bronze Delta
-      │
-      ▼
-Silver Delta
-      │
-      ▼
-dbt Gold
-      │
-      ├──────────────┬──────────────┐
-      ▼              ▼              ▼
-   Power BI       Analytics       FastAPI
+Amazon EMR
 ```
 
-Batch identity and source-file metadata support operational traceability.
+This allows transformation logic to be developed and tested locally
+before cloud execution.
 
----
+EMR is responsible for compute, not permanent storage. Persistent
+datasets remain in Amazon S3.
 
-# 13. Consumption Layer
+------------------------------------------------------------------------
 
-The consumption layer exposes trusted analytical outputs to internal and approved external consumers.
+# 9. Event-Driven Architecture
 
-Internal consumption includes:
+The target platform includes event-driven scheduling for Raw-to-Bronze
+processing.
 
-* HR reporting;
-* Finance reporting;
-* leadership dashboards;
-* workforce planning;
-* learning analytics;
-* recruitment analysis;
-* machine learning.
+``` text
+New Raw Object
+      │
+      ▼
+Amazon S3 Event
+      │
+      ▼
+AWS Lambda
+      │
+      ▼
+Submit EMR Spark Job
+      │
+      ▼
+Bronze Output
+```
 
-External or controlled consumption is provided through governed data products.
+The Lambda function acts as a lightweight control-plane component.
+Transformation logic remains inside Spark jobs.
 
----
+This architecture supports near-automatic processing when new Raw
+batches arrive.
 
-# 14. Power BI
+------------------------------------------------------------------------
 
-Power BI consumes Gold datasets and semantic models.
+# 10. Scheduled Orchestration
 
-The flow is:
+Not every workload should be event-driven.
 
-```text
+Scheduled orchestration remains appropriate for:
+
+-   recurring operational extraction;
+-   periodic quality reporting;
+-   payroll cycles;
+-   Gold refreshes;
+-   metadata publication;
+-   maintenance;
+-   dependent multi-stage workflows.
+
+A workflow orchestrator can be introduced when scheduling and dependency
+management become sufficiently complex.
+
+------------------------------------------------------------------------
+
+# 11. Amazon S3
+
+S3 provides durable storage for the analytical platform.
+
+``` text
+s3://<bucket>/
+├── raw/
+├── bronze/
+├── silver/
+└── gold/
+```
+
+S3 also provides the event source for the target Lambda-triggered Bronze
+workflow.
+
+------------------------------------------------------------------------
+
+# 12. Analytics Engineering
+
+Analytics engineering sits between trusted Silver data and business
+consumption.
+
+``` text
 Silver
-   │
-   ▼
-dbt
-   │
-   ▼
-Gold
-   │
-   ▼
-Power BI Semantic Model
-   │
-   ▼
-Dashboards
+   ↓
+Gold Data Products
+   ↓
+dbt Models / Tests
+   ↓
+Reporting Models
 ```
 
-Power BI does not query PostgreSQL or Raw data for analytical reporting.
+dbt is used where declarative SQL modelling provides clear value; it
+does not replace PySpark processing.
 
----
+------------------------------------------------------------------------
 
-# 15. Analytics and Machine Learning
+# 13. Power BI
 
-The analytics layer supports workforce modelling such as:
+Power BI consumes curated Gold products or reporting models rather than
+PostgreSQL, Raw or Bronze data.
 
-* attrition prediction;
-* burnout analysis;
-* promotion modelling;
-* workforce forecasting.
+This keeps reporting logic isolated from ingestion and operational
+systems.
 
-ML workloads consume governed Silver or Gold datasets.
+------------------------------------------------------------------------
 
-```text
-Silver / Gold
-      │
-      ▼
-Feature Engineering
-      │
-      ▼
-ML / Analytics
-```
+# 14. Advanced Analytics and Machine Learning
 
-This prevents model development from depending directly on unstable Raw data.
+Governed Silver and Gold datasets can support:
 
----
+-   attrition prediction;
+-   workforce forecasting;
+-   burnout analysis;
+-   promotion analysis;
+-   workforce segmentation.
 
-# 16. Governed Data Sharing
+Raw data should not normally be consumed directly by ML workloads.
 
-The platform supports controlled data sharing with internal and third-party consumers.
+------------------------------------------------------------------------
 
-Consumers never receive direct access to:
+# 15. Governed Data Sharing
 
-* PostgreSQL operational tables;
-* Raw S3 objects;
-* Bronze tables;
-* unrestricted Silver data.
+Approved analytical products can be exposed through FastAPI.
 
-Approved products are derived from Gold or purpose-built curated views.
-
-```text
-Gold
- │
- ▼
-Approved Data Product
- │
- ▼
-Access Policy
- │
- ▼
+``` text
+Gold Data Product
+       │
+       ▼
+Sharing Policy
+       │
+       ▼
 FastAPI
- │
- ├── Authentication
- ├── Authorisation
- ├── API Keys
- ├── Rate Limiting
- ├── Audit Logging
- └── Request Tracking
- │
- ▼
+       │
+       ├── Authentication
+       ├── Authorisation
+       ├── API Keys
+       ├── Rate Limiting
+       └── Audit Logging
+       │
+       ▼
 Approved Consumer
 ```
 
-The `data_sharing/` layer governs who can access which product, while the API provides the delivery mechanism.
+Third parties do not receive direct access to PostgreSQL, Raw, Bronze or
+unrestricted Silver datasets.
 
----
+------------------------------------------------------------------------
 
-# 17. External Integrations
+# 16. Metadata and Lineage
 
-External data can be introduced through a governed integration framework.
+The metadata capability will document implemented platform assets
+including:
 
-Potential enrichment datasets include:
+-   dataset schemas;
+-   ownership;
+-   classifications;
+-   quality results;
+-   lineage;
+-   business definitions;
+-   data products.
 
-* public holidays;
-* labour-market statistics;
-* exchange rates;
-* geographical data.
+The target lineage chain is:
 
-External datasets follow the same data-engineering principles as operational data.
-
-```text
-External Source
-      │
-      ▼
-Integration Client
-      │
-      ▼
-Raw
-      │
-      ▼
-Bronze
-      │
-      ▼
-Silver
-```
-
-External data does not bypass lakehouse governance.
-
----
-
-# 18. Workflow Orchestration
-
-The platform separates transformation logic from workflow orchestration.
-
-Current local orchestration is exposed through:
-
-```text
-main.py
-```
-
-Production orchestration is designed around Airflow.
-
-The target production sequence is:
-
-```text
-Generate Operational Data
-        │
-        ▼
-Validate Operational Data
-        │
-        ▼
-Extract PostgreSQL
-        │
-        ▼
-Validate Raw
-        │
-        ▼
-Upload Raw to S3
-        │
-        ▼
-Process Bronze
-        │
-        ▼
-Validate Bronze
-        │
-        ▼
-Process Silver
-        │
-        ▼
-Validate Silver
-        │
-        ▼
-Run dbt
-        │
-        ▼
-Run dbt Tests
-        │
-        ▼
-Publish Metadata
-        │
-        ▼
-Refresh Consumers
-```
-
-Airflow coordinates jobs without embedding transformation business logic.
-
----
-
-# 19. Infrastructure Architecture
-
-Cloud infrastructure is provisioned through Terraform.
-
-Target infrastructure includes:
-
-* Amazon S3;
-* IAM;
-* networking;
-* secrets management;
-* Databricks resources;
-* database infrastructure;
-* Airflow;
-* API infrastructure.
-
-Terraform supports:
-
-* repeatable environment provisioning;
-* environment separation;
-* controlled infrastructure changes;
-* CI/CD integration.
-
----
-
-# 20. CI/CD
-
-GitHub Actions provides continuous integration and delivery.
-
-The CI/CD architecture covers:
-
-* linting;
-* automated tests;
-* security scanning;
-* dbt validation;
-* Terraform validation;
-* controlled deployment.
-
-Changes are validated before being promoted to target environments.
-
----
-
-# 21. Security Architecture
-
-Security is applied at multiple boundaries.
-
-```text
+``` text
+Reference YAML
+      ↓
 PostgreSQL
-    │
-    └── Database roles / credentials
+      ↓
+Raw Batch
+      ↓
+Bronze
+      ↓
+Silver
+      ↓
+Gold Data Product
+      ↓
+Power BI / ML / API
+```
+
+------------------------------------------------------------------------
+
+# 17. Infrastructure Architecture
+
+Target AWS infrastructure includes:
+
+-   Amazon S3;
+-   IAM;
+-   AWS Lambda;
+-   Amazon EMR;
+-   networking where required;
+-   secrets management;
+-   optional EC2 operational tooling;
+-   API infrastructure.
+
+Terraform will provide repeatable Infrastructure as Code.
+
+------------------------------------------------------------------------
+
+# 18. CI/CD
+
+GitHub Actions will support:
+
+-   linting;
+-   automated tests;
+-   security scanning;
+-   Spark validation;
+-   dbt validation;
+-   Terraform validation;
+-   deployment automation.
+
+------------------------------------------------------------------------
+
+# 19. Security Architecture
+
+Security is applied at each boundary.
+
+``` text
+PostgreSQL
+    └── Database credentials / roles
 
 Amazon S3
-    │
-    └── AWS IAM
+    └── IAM policies
 
-Databricks
-    │
-    └── Unity Catalog
+AWS Lambda / EMR
+    └── IAM execution roles
 
 Gold
-    │
     └── Approved analytical datasets
 
-data_sharing/
-    │
-    └── Consumer access policies
-
 FastAPI
-    │
     ├── Authentication
     ├── Authorisation
-    ├── API keys
     ├── Rate limiting
     └── Audit logging
 ```
 
-Secrets are managed outside source code and are not committed to version control.
+Secrets must not be committed to source control.
 
----
+------------------------------------------------------------------------
 
-# 22. Quality Architecture
+# 20. Quality Architecture
 
-Quality controls are implemented across the complete lifecycle.
-
-```text
+``` text
 Reference Data
-      │
-      ▼
+      ↓
 Reference Validation
-      │
-      ▼
+      ↓
 PostgreSQL
-      │
-      ▼
+      ↓
 Operational Validation
-      │
-      ▼
+      ↓
 Raw
-      │
-      ▼
+      ↓
 Source-to-Raw Reconciliation
-      │
-      ▼
+      ↓
 Bronze
-      │
-      ▼
+      ↓
 Structural Validation
-      │
-      ▼
+      ↓
 Silver
-      │
-      ▼
+      ↓
 Business Conformity
-      │
-      ▼
+      ↓
 Gold
-      │
-      ▼
-dbt Tests
+      ↓
+Analytical Tests
+      ↓
+Data Products
 ```
 
-This creates defence in depth rather than relying on a single quality stage.
+This provides defence in depth.
 
----
+------------------------------------------------------------------------
 
-# Architecture Principles
+# 21. Current and Target State
 
-## Separation of Operational and Analytical Workloads
+  Capability                       Status
+  -------------------------------- ------------------------
+  Operational simulator            Implemented
+  PostgreSQL                       Implemented
+  Reference-data framework         Implemented
+  Operational quality              Implemented
+  Parquet extraction               Implemented
+  Raw reconciliation               Implemented
+  S3 Raw upload                    Implemented
+  Local PySpark foundation         Implemented / evolving
+  Bronze                           Next implementation
+  Amazon EMR                       Planned next
+  Event-driven S3 → Lambda → EMR   Planned
+  Silver                           Planned
+  Gold data products               Planned
+  dbt                              Planned
+  Metadata / lineage               Planned
+  Power BI                         Planned
+  ML                               Planned
+  FastAPI sharing                  Planned
+  Terraform                        Planned
+  GitHub Actions                   Planned
 
-The operational HR source system and analytical lakehouse are separate.
-
-```text
-Operational
-
-Simulator
-   ↓
-PostgreSQL
-
-
-Analytical
-
-S3 Raw
-   ↓
-Bronze
-   ↓
-Silver
-   ↓
-Gold
-```
-
----
-
-## Immutable Raw Layer
-
-Raw data is preserved as the replay and audit layer.
-
-It is minimally transformed and carries technical extraction metadata.
-
----
-
-## Medallion Architecture
-
-Data becomes progressively more governed and analytically useful:
-
-```text
-Raw
- ↓
-Bronze
- ↓
-Silver
- ↓
-Gold
-```
-
----
-
-## Clear Technology Ownership
-
-```text
-Python / ETL
-    PostgreSQL → Raw
-
-PySpark / Databricks
-    Raw → Bronze → Silver
-
-dbt
-    Silver → Gold
-```
-
-Each processing technology owns a clearly defined transformation boundary.
-
----
-
-## Governance by Design
-
-Governance is integrated throughout the platform rather than added after analytical development.
-
-Technical governance, business metadata, ownership, classification, quality and data-sharing policies are managed as first-class capabilities.
-
----
-
-## Security by Design
-
-Consumers access only the level of data required for their use case.
-
-Operational and low-level lakehouse data remain protected from direct external consumption.
-
----
-
-## Idempotency and Reproducibility
-
-The platform supports repeatable execution through:
-
-* idempotent reference-data seeding;
-* controlled simulator full refresh;
-* extraction batch identity;
-* partitioned Raw datasets;
-* source-to-Raw reconciliation;
-* batch-aware lakehouse processing.
-
----
-
-## Traceability
-
-Every downstream data product can be traced back through the transformation chain to its originating source and extraction batch.
-
----
-
-# Current Platform Flow
-
-The implemented platform currently supports:
-
-```text
-Reference YAML
-      │
-      ▼
-Reference Validation
-      │
-      ▼
-PostgreSQL Reference Tables
-      │
-      ▼
-Synthetic HR Simulator
-      │
-      ▼
-PostgreSQL Operational DB
-      │
-      ▼
-Operational Quality
-      │
-      ▼
-Parquet Extraction
-      │
-      ▼
-Raw Reconciliation
-      │
-      ▼
-Amazon S3 Raw
-```
-
-The lakehouse processing layer extends this foundation through Databricks, Delta Lake and dbt.
-
----
-
-# Target Platform Flow
-
-```text
-Governed Reference Data
-        │
-        ▼
-Synthetic HRIS
-        │
-        ▼
-PostgreSQL
-        │
-        ▼
-Operational Quality
-        │
-        ▼
-Raw Extraction
-        │
-        ▼
-Amazon S3 Raw
-        │
-        ▼
-Databricks Bronze
-        │
-        ▼
-Databricks Silver
-        │
-        ▼
-dbt Gold
-        │
-        ├────────────────┬─────────────────┐
-        ▼                ▼                 ▼
-    Power BI       Analytics / ML     Data Products
-                                            │
-                                            ▼
-                                    Sharing Governance
-                                            │
-                                            ▼
-                                         FastAPI
-                                            │
-                                            ▼
-                                    Approved Consumers
-```
-
----
+------------------------------------------------------------------------
 
 # Summary
 
-The People Analytics Lakehouse Platform separates the complete data lifecycle into distinct operational, ingestion, lakehouse, analytics, governance and consumption layers.
+The target system architecture is:
 
-The core architecture is:
-
-```text
+``` text
 PostgreSQL
     ↓
 Amazon S3 Raw
     ↓
-Databricks Bronze
+Amazon EMR / PySpark Bronze
     ↓
-Databricks Silver
+PySpark + Spark SQL Silver
     ↓
-dbt Gold
+Gold Data Products
     ↓
-Governed Consumption
+Power BI / Analytics / API
 ```
 
-This architecture provides a scalable foundation for enterprise workforce analytics while demonstrating modern practices in data engineering, lakehouse architecture, analytics engineering, data governance, orchestration, infrastructure automation and secure data sharing.
+Event-driven S3 and Lambda integration automates data-arrival processing
+while keeping Spark transformation logic portable and independently
+testable.

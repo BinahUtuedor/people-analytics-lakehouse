@@ -2,31 +2,20 @@
 
 ## Overview
 
-The **People Analytics Lakehouse Platform** follows a modular, production-oriented architecture designed around modern data engineering, lakehouse, analytics engineering and data-governance practices.
+The **People Analytics Lakehouse Platform** uses a modular repository
+structure that separates operational simulation, reference-data
+management, data quality, extraction, Spark processing, analytics
+engineering, governance, orchestration, infrastructure and consumption.
 
-The repository separates the operational HR system, reference-data management, data quality, ingestion, lakehouse processing, analytics engineering, governance, orchestration and data consumption into clearly defined components.
+The repository is designed around the current implementation and the
+planned AWS architecture using **Amazon S3, Amazon EMR, AWS Lambda,
+PySpark, Spark SQL, dbt and Power BI**.
 
-The platform architecture is centred on:
-
-* **Python and SQLAlchemy** for operational data simulation and ingestion;
-* **PostgreSQL** as the operational HR source system;
-* **Amazon S3** as the immutable Raw data lake;
-* **Databricks on AWS** for scalable lakehouse processing;
-* **Delta Lake** for Bronze and Silver managed datasets;
-* **PySpark** for Bronze and Silver engineering;
-* **dbt-databricks** for Gold analytical modelling;
-* **Unity Catalog** for lakehouse governance;
-* **Airflow** for workflow orchestration;
-* **Power BI** for business intelligence;
-* **FastAPI** for governed data-product delivery;
-* **Terraform** for infrastructure provisioning;
-* **GitHub Actions** for CI/CD.
-
----
+------------------------------------------------------------------------
 
 # Repository Layout
 
-```text
+``` text
 people-analytics-lakehouse-platform/
 │
 ├── config/
@@ -42,49 +31,20 @@ people-analytics-lakehouse-platform/
 │   ├── departments.yml
 │   ├── locations.yml
 │   ├── job_roles.yml
-│   ├── employment_types.yml
-│   ├── genders.yml
 │   ├── attendance_statuses.yml
-│   ├── absence_reasons.yml
-│   ├── public_holidays.yml
+│   ├── genders.yml
 │   ├── leave_types.yml
+│   ├── employment_types.yml
+│   ├── exit_reasons.yml
 │   ├── training_categories.yml
-│   └── exit_reasons.yml
+│   ├── public_holidays.yml
+│   └── absence_reasons.yml
 │
 ├── database/
 │   ├── __init__.py
-│   ├── base.py
 │   ├── connection.py
-│   ├── create_schema.py
-│   ├── seed.py
-│   │
-│   └── models/
-│       ├── __init__.py
-│       ├── business_unit.py
-│       ├── department.py
-│       ├── location.py
-│       ├── job_role.py
-│       ├── employment_type.py
-│       ├── gender.py
-│       ├── attendance_status.py
-│       ├── absence_reason.py
-│       ├── public_holiday.py
-│       ├── leave_type.py
-│       ├── training_category.py
-│       ├── exit_reason.py
-│       ├── employee.py
-│       ├── employee_exit.py
-│       ├── attendance.py
-│       ├── payroll.py
-│       ├── leave.py
-│       ├── recruitment.py
-│       ├── promotion.py
-│       ├── transfer.py
-│       ├── training.py
-│       ├── performance_review.py
-│       ├── employee_survey.py
-│       ├── manager_feedback.py
-│       └── exit_interview.py
+│   ├── models/
+│   └── seed.py
 │
 ├── simulator/
 │   ├── __init__.py
@@ -96,228 +56,111 @@ people-analytics-lakehouse-platform/
 │   ├── payroll.py
 │   ├── leave.py
 │   ├── training.py
+│   ├── promotions.py
+│   ├── transfers.py
 │   ├── performance.py
-│   ├── promotion.py
-│   ├── transfer.py
 │   ├── surveys.py
 │   ├── manager_feedback.py
-│   ├── exits.py
+│   ├── employee_exits.py
 │   └── exit_interviews.py
 │
 ├── quality/
 │   ├── __init__.py
-│   ├── validation.py
-│   ├── raw_extraction_validation.py
-│   ├── reference_data_checks.py
-│   ├── duplicate_checks.py
-│   ├── integrity_checks.py
 │   ├── business_rules.py
-│   ├── workforce_lifecycle_checks.py
-│   ├── validate_promotion_salary.py
-│   ├── expectations.py
-│   ├── metrics.py
-│   ├── report.py
-│   └── exceptions.py
+│   ├── reference_data_checks.py
+│   ├── raw_checks.py
+│   └── ...
 │
 ├── etl/
 │   ├── __init__.py
 │   ├── extract.py
-│   └── export_s3.py
+│   ├── export_s3.py
+│   └── ...
 │
 ├── spark/
 │   ├── __init__.py
-│   │
+│   ├── session.py
 │   ├── common/
 │   │   ├── __init__.py
-│   │   ├── spark_session.py
-│   │   ├── delta.py
-│   │   ├── quality.py
-│   │   └── utilities.py
+│   │   ├── paths.py
+│   │   ├── metadata.py
+│   │   └── validation.py
 │   │
 │   ├── bronze/
 │   │   ├── __init__.py
-│   │   ├── reader.py
-│   │   ├── transformer.py
-│   │   ├── writer.py
-│   │   └── processor.py
+│   │   ├── job.py
+│   │   ├── transform.py
+│   │   └── validate.py
 │   │
-│   ├── silver/
-│   │   ├── __init__.py
-│   │   ├── employees.py
-│   │   ├── attendance.py
-│   │   ├── payroll.py
-│   │   ├── leave.py
-│   │   ├── recruitment.py
-│   │   ├── training.py
-│   │   └── workforce_events.py
-│   │
-│   └── jobs/
+│   └── silver/
 │       ├── __init__.py
-│       ├── bronze_job.py
-│       └── silver_job.py
+│       ├── job.py
+│       ├── transform.py
+│       └── validate.py
 │
 ├── dbt/
-│   ├── models/
-│   │   ├── staging/
-│   │   ├── intermediate/
-│   │   ├── dimensions/
-│   │   ├── facts/
-│   │   └── marts/
-│   │       ├── workforce/
-│   │       ├── attendance/
-│   │       ├── finance/
-│   │       ├── recruitment/
-│   │       └── learning/
-│   │
-│   ├── macros/
-│   ├── snapshots/
-│   ├── tests/
-│   ├── seeds/
-│   ├── analyses/
-│   ├── docs/
-│   │   ├── exposures.yml
-│   │   ├── metrics.yml
-│   │   └── groups.yml
-│   ├── dbt_project.yml
-│   └── profiles.yml
+│   └── people_analytics/
+│       ├── dbt_project.yml
+│       ├── models/
+│       │   ├── staging/
+│       │   ├── intermediate/
+│       │   └── marts/
+│       │       ├── workforce/
+│       │       ├── recruitment/
+│       │       ├── learning/
+│       │       ├── performance/
+│       │       ├── payroll/
+│       │       └── attrition/
+│       ├── tests/
+│       ├── macros/
+│       └── seeds/
+│
+├── orchestration/
+│   ├── lambda/
+│   │   ├── raw_object_created.py
+│   │   └── requirements.txt
+│   ├── schedules/
+│   └── scripts/
+│       ├── submit_emr_job.sh
+│       └── run_pipeline.sh
+│
+├── integrations/
+│   ├── __init__.py
+│   └── ...
 │
 ├── metadata/
 │   ├── __init__.py
-│   ├── loader.py
-│   │
-│   ├── schemas/
-│   │   └── ...
-│   │
-│   ├── lineage/
-│   │   ├── source_to_raw.yml
-│   │   ├── raw_to_bronze.yml
-│   │   ├── bronze_to_silver.yml
-│   │   ├── silver_to_gold.yml
-│   │   └── gold_to_consumers.yml
-│   │
-│   ├── ownership.yml
-│   ├── classifications.yml
-│   └── glossary.yml
+│   └── ...
 │
 ├── catalogue/
 │   ├── __init__.py
-│   ├── base.py
-│   ├── models.py
-│   ├── create_schema.py
-│   ├── register_assets.py
-│   ├── register_columns.py
-│   ├── register_lineage.py
-│   ├── register_quality_results.py
-│   ├── sync_postgres.py
-│   ├── sync_databricks.py
-│   ├── sync_dbt.py
-│   └── report.py
+│   └── ...
 │
 ├── data_sharing/
 │   ├── __init__.py
-│   ├── base.py
-│   ├── create_schema.py
-│   ├── seed.py
-│   ├── repositories.py
-│   ├── services.py
-│   │
-│   └── models/
-│       ├── __init__.py
-│       ├── api_consumer.py
-│       ├── api_key.py
-│       ├── access_policy.py
-│       ├── data_product.py
-│       ├── access_log.py
-│       └── export_request.py
+│   └── ...
 │
 ├── api/
 │   ├── __init__.py
 │   ├── main.py
-│   ├── dependencies.py
-│   ├── exceptions.py
-│   │
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── api_settings.py
-│   │
-│   └── v1/
-│       ├── routes/
-│       │   ├── __init__.py
-│       │   ├── health.py
-│       │   ├── workforce.py
-│       │   ├── attendance.py
-│       │   ├── payroll.py
-│       │   ├── recruitment.py
-│       │   └── data_products.py
-│       │
-│       ├── schemas/
-│       │   ├── __init__.py
-│       │   ├── workforce.py
-│       │   ├── attendance.py
-│       │   ├── payroll.py
-│       │   ├── recruitment.py
-│       │   └── common.py
-│       │
-│       ├── services/
-│       │   ├── __init__.py
-│       │   ├── workforce_service.py
-│       │   ├── attendance_service.py
-│       │   ├── payroll_service.py
-│       │   └── export_service.py
-│       │
-│       ├── repositories/
-│       │   ├── __init__.py
-│       │   ├── workforce_repository.py
-│       │   ├── attendance_repository.py
-│       │   ├── payroll_repository.py
-│       │   └── recruitment_repository.py
-│       │
-│       ├── security/
-│       │   ├── __init__.py
-│       │   ├── authentication.py
-│       │   ├── authorization.py
-│       │   ├── api_keys.py
-│       │   ├── permissions.py
-│       │   └── rate_limiting.py
-│       │
-│       └── middleware/
-│           ├── __init__.py
-│           ├── audit_logging.py
-│           ├── request_id.py
-│           └── security_headers.py
-│
-├── integrations/
-│   ├── __init__.py
-│   ├── base_client.py
-│   ├── schemas.py
-│   ├── exceptions.py
-│   │
-│   └── providers/
-│       ├── holidays.py
-│       ├── labour_market.py
-│       ├── exchange_rates.py
-│       └── geocoding.py
+│   ├── routes/
+│   ├── schemas/
+│   ├── services/
+│   └── security/
 │
 ├── analytics/
-│   ├── __init__.py
 │   ├── attrition_prediction.py
 │   ├── burnout_prediction.py
 │   ├── promotion_prediction.py
 │   └── workforce_forecasting.py
 │
-├── airflow/
-│   ├── dags/
-│   │   ├── operational_to_raw.py
-│   │   ├── process_bronze.py
-│   │   ├── process_silver.py
-│   │   ├── run_dbt.py
-│   │   └── publish_metadata.py
-│   │
-│   ├── plugins/
-│   └── requirements.txt
-│
 ├── dashboards/
-│   ├── reports/
+│   ├── workforce/
+│   ├── recruitment/
+│   ├── learning/
+│   ├── performance/
+│   ├── payroll/
+│   ├── attrition/
 │   ├── semantic_models/
 │   └── screenshots/
 │
@@ -332,7 +175,7 @@ people-analytics-lakehouse-platform/
 │
 ├── sql/
 │   ├── postgres/
-│   └── databricks/
+│   └── spark/
 │
 ├── tests/
 │   ├── database/
@@ -342,6 +185,7 @@ people-analytics-lakehouse-platform/
 │   ├── etl/
 │   ├── spark/
 │   ├── dbt/
+│   ├── orchestration/
 │   ├── metadata/
 │   ├── catalogue/
 │   ├── data_sharing/
@@ -351,18 +195,16 @@ people-analytics-lakehouse-platform/
 │   ├── modules/
 │   │   ├── s3/
 │   │   ├── iam/
+│   │   ├── lambda/
+│   │   ├── emr/
 │   │   ├── networking/
 │   │   ├── secrets/
-│   │   ├── databricks/
 │   │   ├── database/
-│   │   ├── airflow/
 │   │   └── api/
-│   │
 │   ├── environments/
 │   │   ├── dev/
 │   │   ├── staging/
 │   │   └── production/
-│   │
 │   ├── providers.tf
 │   ├── variables.tf
 │   ├── outputs.tf
@@ -370,1233 +212,396 @@ people-analytics-lakehouse-platform/
 │
 ├── deployment/
 │   ├── docker/
-│   │   └── api.Dockerfile
-│   │
 │   ├── configs/
-│   │   ├── dev.env.example
-│   │   ├── staging.env.example
-│   │   └── production.env.example
-│   │
 │   └── scripts/
-│       ├── deploy.sh
-│       ├── rollback.sh
-│       └── health_check.sh
 │
 ├── .github/
 │   └── workflows/
 │       ├── lint.yml
 │       ├── test.yml
 │       ├── security-scan.yml
+│       ├── spark-ci.yml
 │       ├── dbt-ci.yml
 │       ├── terraform.yml
 │       └── deploy.yml
 │
 ├── docs/
 │   ├── README.md
-│   │
 │   ├── architecture/
 │   │   ├── repository-structure.md
 │   │   ├── system-architecture.md
 │   │   ├── database-architecture.md
-│   │   ├── data-flow.md
-│   │   ├── deployment-architecture.md
-│   │   └── technology-stack.md
-│   │
-│   ├── data-governance/
-│   │   ├── data-dictionary.md
-│   │   ├── data-lineage.md
-│   │   ├── reference-data.md
-│   │   ├── data-quality-framework.md
-│   │   ├── metadata-framework.md
-│   │   ├── data-catalogue.md
-│   │   └── security-and-data-sharing.md
-│   │
-│   ├── implementation/
-│   │   ├── local-development.md
-│   │   ├── postgres.md
-│   │   ├── simulator.md
-│   │   ├── raw-ingestion.md
-│   │   ├── databricks.md
-│   │   ├── bronze.md
-│   │   ├── silver.md
-│   │   ├── dbt.md
-│   │   ├── airflow.md
-│   │   ├── api.md
-│   │   └── deployment.md
-│   │
-│   ├── decisions/
-│   │   ├── adr-001-layered-architecture.md
-│   │   ├── adr-002-reference-data.md
-│   │   ├── adr-003-aws-databricks.md
-│   │   ├── adr-004-medallion-architecture.md
-│   │   ├── adr-005-dbt-gold-layer.md
-│   │   ├── adr-006-metadata-governance.md
-│   │   └── adr-007-data-sharing.md
-│   │
-│   └── diagrams/
-│       ├── repository-structure.mmd
-│       ├── system-architecture.mmd
-│       ├── data-flow.mmd
-│       ├── database-architecture.mmd
-│       ├── lakehouse-architecture.mmd
-│       └── metadata-lineage.mmd
+│   │   └── data-flow.md
+│   ├── development/
+│   ├── operations/
+│   └── governance/
 │
-├── scripts/
-│   ├── setup_local.py
-│   └── set_spark_java.ps1
-│
-├── docker/
-│   └── local/
-│       ├── postgres/
-│       └── airflow/
-│
-├── logs/
-│
-├── releases/
-│   ├── CHANGELOG.md
-│   └── roadmap.md
-│
-├── .env
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml
 ├── Makefile
-├── requirements.txt
-├── pyproject.toml
 ├── main.py
-├── LICENSE
-├── CONTRIBUTING.md
-└── README.md
+├── requirements.txt
+├── README.md
+└── LICENSE
 ```
 
-# Top-Level Modules
+The structure above is the **target repository layout**. Directories for
+planned capabilities should be introduced when implementation reaches
+those capabilities rather than created solely to mirror the target tree.
+
+------------------------------------------------------------------------
+
+# Component Responsibilities
 
 ## `config/`
 
-Provides centralised application configuration.
+Central application configuration, constants and logging.
 
-It contains:
+Environment-specific secrets remain outside source control.
 
-* environment-variable loading;
-* PostgreSQL connection settings;
-* AWS configuration;
-* Amazon S3 prefixes;
-* Databricks configuration;
-* Spark configuration;
-* global constants;
-* structured application logging.
-
-Application modules consume central configuration rather than independently reading environment variables.
-
----
+------------------------------------------------------------------------
 
 ## `reference_data/`
 
-Provides the platform's governed reference-data layer.
+Contains governed YAML reference datasets and their loader.
 
-Reference datasets are maintained as YAML files and loaded into PostgreSQL through the database seeding process.
+Reference data supplies controlled values for organisational structures
+and simulator domains.
 
-Current reference datasets include:
-
-* business units;
-* departments;
-* locations;
-* job roles;
-* employment types;
-* genders;
-* attendance statuses;
-* absence reasons;
-* public holidays;
-* leave types;
-* training categories;
-* employee exit reasons.
-
-The simulator consumes governed reference values rather than maintaining independent hard-coded vocabularies.
-
----
+------------------------------------------------------------------------
 
 ## `database/`
 
-Implements the PostgreSQL operational HR information system.
+Contains SQLAlchemy connectivity, ORM models and database seeding.
 
-Responsibilities include:
+PostgreSQL remains the operational source system.
 
-* SQLAlchemy ORM models;
-* database connection management;
-* schema creation;
-* reference-data persistence;
-* database seeding;
-* workforce master data;
-* workforce lifecycle events.
-
-PostgreSQL represents the operational source system and is deliberately separated from the analytical lakehouse.
-
----
+------------------------------------------------------------------------
 
 ## `simulator/`
 
-Implements the synthetic HRIS workload.
+Generates synthetic workforce entities and events.
 
-The simulator generates realistic interconnected workforce data covering:
+The simulator consumes governed reference values from PostgreSQL and
+preserves employee lifecycle dependencies.
 
-* employees;
-* recruitment;
-* attendance;
-* payroll;
-* leave;
-* training;
-* promotions;
-* transfers;
-* performance reviews;
-* surveys;
-* manager feedback;
-* employee exits;
-* exit interviews.
-
-Business rules ensure that generated records respect employment periods, organisational hierarchy and workforce lifecycle dependencies.
-
----
+------------------------------------------------------------------------
 
 ## `quality/`
 
-Contains the platform data-quality framework.
+Contains reusable validation logic and pipeline quality gates.
 
-Current controls include:
+Responsibilities include:
 
-* duplicate detection;
-* referential-integrity validation;
-* workforce lifecycle rules;
-* employee hierarchy validation;
-* salary validation;
-* payroll validation;
-* promotion reconciliation;
-* transfer reconciliation;
-* termination reconciliation;
-* effective-date validation;
-* reference-data validation;
-* PostgreSQL-to-Raw extraction reconciliation.
+-   reference-data validation;
+-   operational business rules;
+-   duplicate and integrity checks;
+-   lifecycle reconciliation;
+-   Raw validation;
+-   future Bronze and Silver validation.
 
-Quality checks are designed as pipeline gates rather than passive reporting controls.
-
----
+------------------------------------------------------------------------
 
 ## `etl/`
 
-Owns operational source extraction and Raw data ingestion.
+Owns operational extraction and Raw data movement.
 
-The current pipeline is:
+Current responsibilities include:
 
-```text
+``` text
 PostgreSQL
-     │
-     ▼
-etl/extract.py
-     │
-     ▼
-Local Parquet
-     │
-     ▼
-Raw Validation
-     │
-     ▼
-etl/export_s3.py
-     │
-     ▼
-Amazon S3 Raw
+    ↓
+Parquet
+    ↓
+Raw validation
+    ↓
+Amazon S3
 ```
 
-The ETL package does not own Bronze, Silver or Gold transformations.
-
----
+------------------------------------------------------------------------
 
 ## `spark/`
 
-Contains the Databricks/PySpark lakehouse engineering layer.
+Owns distributed Bronze and Silver processing.
 
-PySpark owns:
+Spark code should be portable between local development and Amazon EMR.
 
-```text
-Raw
- ↓
-Bronze
- ↓
-Silver
+Recommended separation:
+
+``` text
+spark/
+├── common/
+├── bronze/
+└── silver/
 ```
 
-### Bronze
+Each layer should separate job entry points, transformation logic and
+validation where practical.
 
-Bronze preserves source fidelity while introducing technical lakehouse controls such as:
-
-* schema enforcement;
-* source-file tracking;
-* ingestion timestamps;
-* batch lineage;
-* controlled schema evolution;
-* structural quality validation.
-
-### Silver
-
-Silver produces trusted and reusable workforce entities through:
-
-* deduplication;
-* data-type standardisation;
-* reference-data conformity;
-* null handling;
-* business-key enforcement;
-* validated joins;
-* reusable domain transformations.
-
-Spark jobs are designed to execute on Databricks while remaining modular and testable.
-
----
+------------------------------------------------------------------------
 
 ## `dbt/`
 
-Implements analytics engineering from Silver to Gold.
+Contains SQL-based analytical models for selected Gold outputs.
 
-The transformation boundary is:
+Gold is organised by analytical domain:
 
-```text
-Silver Delta
-     │
-     ▼
-dbt-databricks
-     │
-     ▼
-Gold
+``` text
+marts/
+├── workforce/
+├── recruitment/
+├── learning/
+├── performance/
+├── payroll/
+└── attrition/
 ```
 
-Gold contains:
+dbt owns analytical SQL dependencies, tests and documentation where
+appropriate.
 
-* dimension tables;
-* fact tables;
-* analytical marts;
-* reporting models;
-* documented business metrics.
+------------------------------------------------------------------------
 
-Example domains include:
+## `orchestration/`
 
-* workforce;
-* attendance;
-* payroll and finance;
-* recruitment;
-* learning and development.
+Contains event-driven and scheduled workflow control code.
 
-dbt also provides analytical tests, lineage and model documentation.
+The first target event-driven pattern is:
 
----
-
-## `metadata/`
-
-Defines cross-platform technical and business metadata.
-
-The metadata framework supports:
-
-* schemas;
-* ownership;
-* classifications;
-* business glossary definitions;
-* cross-platform lineage.
-
-The intended lineage chain is:
-
-```text
-PostgreSQL
-    ↓
-S3 Raw
-    ↓
-Bronze
-    ↓
-Silver
-    ↓
-dbt Gold
-    ↓
-Power BI / ML / API
+``` text
+S3 Raw ObjectCreated
+        ↓
+AWS Lambda
+        ↓
+Amazon EMR Spark Job
 ```
 
----
+Transformation logic must remain in `spark/`, not in Lambda.
 
-## `catalogue/`
+Shell scripts support repeatable job submission and operational
+execution.
 
-Provides the enterprise metadata catalogue.
-
-The catalogue complements Databricks Unity Catalog by providing cross-platform business governance.
-
-It is designed to register:
-
-* datasets;
-* columns;
-* business ownership;
-* classifications;
-* quality results;
-* lineage;
-* data products.
-
-Metadata can be synchronised from PostgreSQL, Databricks and dbt.
-
----
-
-## `data_sharing/`
-
-Implements governance for internal and external data sharing.
-
-Responsibilities include:
-
-* approved API consumers;
-* API keys;
-* access policies;
-* data-product registration;
-* export-request governance;
-* audit history.
-
-This layer determines **who is authorised to receive a data product and under which policy**.
-
----
-
-## `api/`
-
-Provides the secure FastAPI consumption layer.
-
-The API exposes curated data products rather than operational or low-level lakehouse tables.
-
-Responsibilities include:
-
-* HTTP routing;
-* request validation;
-* authentication;
-* authorisation;
-* API-key management;
-* rate limiting;
-* audit logging;
-* response schemas;
-* export services.
-
-The intended flow is:
-
-```text
-Gold Data Product
-       │
-       ▼
-data_sharing/
-       │
-       ▼
-FastAPI
-       │
-       ▼
-Approved Consumer
-```
-
----
+------------------------------------------------------------------------
 
 ## `integrations/`
 
-Provides a common framework for external data enrichment.
+Provides a future framework for external enrichment data.
 
-Potential providers include:
+External data should enter governed ingestion paths rather than
+bypassing Raw and quality controls.
 
-* public holidays;
-* labour-market statistics;
-* exchange rates;
-* geospatial information.
+------------------------------------------------------------------------
 
-External datasets enter the same governed ingestion architecture as internal datasets rather than bypassing Raw and lakehouse controls.
+## `metadata/`
 
----
+Contains platform metadata definitions and publication logic.
+
+Metadata should be added as real Bronze, Silver and Gold assets are
+implemented.
+
+------------------------------------------------------------------------
+
+## `catalogue/`
+
+Represents the planned enterprise metadata catalogue and
+business-governance layer.
+
+------------------------------------------------------------------------
+
+## `data_sharing/`
+
+Owns policy and governance for approved data products, consumers, access
+and audit records.
+
+------------------------------------------------------------------------
+
+## `api/`
+
+Provides the planned FastAPI consumption layer.
+
+The API exposes curated data products rather than operational or
+low-level lakehouse tables.
+
+------------------------------------------------------------------------
 
 ## `analytics/`
 
 Contains advanced workforce analytics and machine-learning workloads.
 
-Planned capabilities include:
+Models should consume governed Silver or Gold datasets.
 
-* attrition prediction;
-* burnout analysis;
-* promotion prediction;
-* workforce forecasting.
-
-Analytical models consume governed Silver or Gold datasets rather than Raw operational data.
-
----
-
-## `airflow/`
-
-Provides production workflow orchestration.
-
-The target workflow is:
-
-```text
-Generate Operational Data
-        │
-        ▼
-Validate Operational Data
-        │
-        ▼
-Extract PostgreSQL
-        │
-        ▼
-Validate Raw
-        │
-        ▼
-Upload Raw to S3
-        │
-        ▼
-Process Bronze
-        │
-        ▼
-Process Silver
-        │
-        ▼
-Run dbt
-        │
-        ▼
-Run Analytical Tests
-        │
-        ▼
-Publish Metadata
-```
-
-Airflow coordinates jobs but does not contain transformation business logic.
-
----
+------------------------------------------------------------------------
 
 ## `dashboards/`
 
-Contains Power BI artefacts including:
+Contains Power BI artefacts and portfolio outputs organised by
+analytical domain.
 
-* reports;
-* semantic models;
-* screenshots and portfolio outputs.
+------------------------------------------------------------------------
 
-Power BI consumes curated Gold datasets.
+## `sql/`
 
----
+Contains SQL assets that are useful outside dbt.
+
+``` text
+sql/
+├── postgres/
+└── spark/
+```
+
+Spark SQL belongs here when it is maintained as standalone SQL rather
+than embedded in transformation modules.
+
+------------------------------------------------------------------------
+
+## `tests/`
+
+Mirrors the main architectural capabilities so each subsystem can be
+tested independently.
+
+Spark tests should focus on deterministic transformation logic that can
+run locally without requiring an EMR environment.
+
+------------------------------------------------------------------------
 
 ## `terraform/`
 
-Provides Infrastructure as Code for the AWS and Databricks environment.
+Provides AWS Infrastructure as Code.
 
-Target infrastructure includes:
+Target modules include:
 
-* Amazon S3;
-* IAM;
-* networking;
-* secrets;
-* Databricks resources;
-* database infrastructure;
-* Airflow infrastructure;
-* API infrastructure.
+-   S3;
+-   IAM;
+-   Lambda;
+-   EMR;
+-   networking;
+-   secrets;
+-   database infrastructure;
+-   API infrastructure.
 
-Environment-specific configuration is maintained for development, staging and production.
-
----
+------------------------------------------------------------------------
 
 ## `.github/`
 
-Contains GitHub Actions CI/CD workflows.
+Contains CI/CD workflows for code quality, tests, Spark validation, dbt,
+Terraform and deployment.
 
-The delivery pipeline supports:
+------------------------------------------------------------------------
 
-* linting;
-* automated testing;
-* security scanning;
-* dbt validation;
-* Terraform validation;
-* deployment automation.
+# Current Implementation Boundary
 
----
+The currently implemented core is:
 
-## `docs/`
-
-Contains the project's technical documentation.
-
-Documentation is organised into:
-
-### Architecture
-
-* system architecture;
-* database architecture;
-* lakehouse architecture;
-* repository structure;
-* data flow;
-* deployment architecture;
-* technology stack.
-
-### Data Governance
-
-* data dictionary;
-* data lineage;
-* reference-data governance;
-* data-quality framework;
-* metadata framework;
-* data catalogue;
-* data-sharing security.
-
-### Implementation
-
-* local development;
-* PostgreSQL;
-* simulator;
-* Raw ingestion;
-* Databricks;
-* Bronze;
-* Silver;
-* dbt;
-* Airflow;
-* API;
-* deployment.
-
-### Architecture Decisions
-
-Architecture Decision Records document significant technology and design decisions throughout the project.
-
----
-
-# Root Files
-
-| File                 | Purpose                                                                    |
-| -------------------- | -------------------------------------------------------------------------- |
-| `.env`               | Local environment variables and credentials. Excluded from source control. |
-| `.env.example`       | Safe template showing required configuration values.                       |
-| `.gitignore`         | Defines files excluded from Git.                                           |
-| `docker-compose.yml` | Defines local development infrastructure.                                  |
-| `Makefile`           | Developer and CI task shortcuts.                                           |
-| `requirements.txt`   | Python dependencies.                                                       |
-| `pyproject.toml`     | Python project and development-tool configuration.                         |
-| `main.py`            | Primary local platform CLI.                                                |
-| `README.md`          | Project overview and implementation guide.                                 |
-| `CONTRIBUTING.md`    | Contribution and development standards.                                    |
-| `LICENSE`            | Project licence.                                                           |
-
----
-
-# Local Platform CLI
-
-The root `main.py` provides a consistent command interface for the currently implemented pipeline.
-
-Examples include:
-
-```bash
-python main.py simulate
-python main.py simulate --full-refresh
-
-python main.py validate
-
-python main.py extract
-
-python main.py validate-raw
-
-python main.py upload-s3
-
-python main.py raw-pipeline
-
-python main.py full-refresh
-```
-
-The complete implemented Raw workflow is:
-
-```text
-Simulation
-    │
-    ▼
-Operational Validation
-    │
-    ▼
-PostgreSQL Extraction
-    │
-    ▼
-Raw Validation
-    │
-    ▼
-Amazon S3 Upload
-```
-
-Additional commands are introduced as the lakehouse layers become operational.
-
----
-
-# Makefile
-
-The Makefile provides a concise developer and CI task interface over the project commands.
-
-For example:
-
-```bash
-make simulate-full
-make validate
-make raw-pipeline
-```
-
-The Makefile delegates to the application's Python CLI and does not contain business logic.
-
----
-
-# Local Data
-
-The `data/` directory is used only for local development artefacts.
-
-```text
-data/
-└── raw/
-    └── postgres/
-```
-
-The authoritative Raw cloud dataset resides in Amazon S3.
-
-Bronze, Silver and Gold are cloud lakehouse assets rather than local filesystem datasets.
-
----
-
-# Lakehouse Layer Ownership
-
-Technology ownership is deliberately explicit.
-
-```text
-PostgreSQL
-    │
-    │ Operational source
-    ▼
-Python ETL
-    │
-    │ Source ingestion
-    ▼
-Amazon S3 Raw
-    │
-    │ Immutable archive
-    ▼
-Databricks / PySpark
-    │
-    ├── Bronze
-    │
-    └── Silver
-    │
-    ▼
-dbt-databricks
-    │
-    ▼
-Gold
-```
-
-This avoids duplicated transformation responsibilities.
-
----
-
-# Governance Architecture
-
-The platform uses complementary governance capabilities.
-
-## Unity Catalog
-
-Unity Catalog provides technical governance of Databricks assets including:
-
-* catalogs;
-* schemas;
-* Delta tables;
-* views;
-* permissions;
-* lakehouse lineage.
-
-## Enterprise Metadata Catalogue
-
-The project catalogue provides broader governance including:
-
-* business definitions;
-* data ownership;
-* classification;
-* quality results;
-* cross-platform lineage;
-* data-product metadata;
-* external sharing metadata.
-
-Together they provide both platform-level and enterprise-level governance.
-
----
-
-# Data Sharing Architecture
-
-Third-party and internal data sharing is based on governed **data products**.
-
-Consumers do not receive direct access to:
-
-* PostgreSQL operational tables;
-* Raw data;
-* Bronze data;
-* unrestricted Silver datasets.
-
-The sharing path is:
-
-```text
-Silver
-   │
-   ▼
-dbt
-   │
-   ▼
-Gold
-   │
-   ▼
-Approved Data Product
-   │
-   ▼
-Access Policy
-   │
-   ▼
-FastAPI
-   │
-   ▼
-Approved Consumer
-```
-
-Security controls include:
-
-* authentication;
-* authorisation;
-* API keys;
-* access policies;
-* rate limiting;
-* audit logging;
-* controlled exports.
-
----
-
-# Repository Layer Model
-
-The repository directly reflects the platform's architectural layers.
-
-```text
-REFERENCE DATA
-──────────────
-
+``` text
+config/
 reference_data/
-       │
-       ▼
-
-OPERATIONAL SYSTEM
-──────────────────
-
 database/
-   │
-   ▼
 simulator/
-   │
-   ▼
 quality/
-
-
-RAW INGESTION
-─────────────
-
 etl/
- │
- ▼
-Amazon S3 Raw
-
-
-LAKEHOUSE ENGINEERING
-─────────────────────
-
-spark/bronze/
-      │
-      ▼
-spark/silver/
-
-
-ANALYTICS ENGINEERING
-─────────────────────
-
-dbt/
- │
- ▼
-Gold
-
-
-GOVERNANCE
-──────────
-
-Unity Catalog
-      +
-metadata/
-      +
-catalogue/
-
-
-CONSUMPTION
-───────────
-
-dashboards/
-analytics/
-data_sharing/
-api/
-
-
-ORCHESTRATION & DELIVERY
-────────────────────────
-
-airflow/
-terraform/
-.github/
-deployment/
-```
-
----
-
-# Design Principles
-
-## Separation of Concerns
-
-Each module owns a clearly defined responsibility.
-
-Operational simulation, source ingestion, lakehouse transformation, analytical modelling, governance and delivery are independently implemented.
-
----
-
-## Operational and Analytical Separation
-
-PostgreSQL represents the operational HR system.
-
-Databricks represents the analytical lakehouse.
-
-```text
-Operational
-───────────
-
-Python Simulator
-      ↓
-PostgreSQL
-
-
-Analytical
-──────────
-
-S3 Raw
-   ↓
-Bronze
-   ↓
-Silver
-   ↓
-Gold
-```
-
----
-
-## Governed Reference Data
-
-Controlled business vocabularies are maintained centrally.
-
-```text
-YAML
- ↓
-Validation
- ↓
-PostgreSQL
- ↓
-Simulator
-```
-
-This creates a single authoritative source for reusable reference values.
-
----
-
-## Data Quality as a Pipeline Gate
-
-Quality validation occurs at multiple boundaries.
-
-```text
-Reference Data
-      ↓
-Reference Validation
-
-PostgreSQL
-      ↓
-Operational Validation
-
-Raw
-      ↓
-Source-to-Raw Reconciliation
-
-Bronze
-      ↓
-Structural Validation
-
-Silver
-      ↓
-Business Conformity
-
-Gold
-      ↓
-dbt Tests
-```
-
-Invalid data should fail processing before reaching downstream consumers.
-
----
-
-## Immutable Raw Data
-
-Amazon S3 Raw provides a durable, source-aligned and replayable archive.
-
-Raw data retains:
-
-* source identity;
-* extraction date;
-* batch identity;
-* source schema;
-* technical extraction metadata.
-
-All downstream lakehouse layers can be rebuilt from Raw.
-
----
-
-## Medallion Architecture
-
-The lakehouse progressively increases data quality and business value.
-
-```text
-Raw
- │
- ▼
-Bronze
- │
- ▼
-Silver
- │
- ▼
-Gold
-```
-
-### Raw
-
-Immutable source archive.
-
-### Bronze
-
-Technically governed source-conformed data.
-
-### Silver
-
-Cleaned, validated and reusable business entities.
-
-### Gold
-
-Business-facing facts, dimensions and marts.
-
----
-
-## Clear Transformation Ownership
-
-```text
-etl/
-    PostgreSQL → Raw
-
-spark/
-    Raw → Bronze → Silver
-
-dbt/
-    Silver → Gold
-```
-
-Each transformation technology has a distinct responsibility.
-
----
-
-## Metadata and Lineage
-
-Data is traceable through the full platform lifecycle.
-
-```text
-Reference Data
-      │
-      ▼
-PostgreSQL
-      │
-      ▼
-S3 Raw Batch
-      │
-      ▼
-Bronze Delta
-      │
-      ▼
-Silver Delta
-      │
-      ▼
-dbt Gold
-      │
-      ▼
-Power BI / ML / API
-```
-
----
-
-## Security by Design
-
-Security is applied at every architectural boundary.
-
-```text
-PostgreSQL
-    Database roles and credentials
-
-Amazon S3
-    AWS IAM
-
-Databricks
-    Unity Catalog
-
-Gold
-    Approved analytical datasets
-
-data_sharing/
-    Consumer access policies
-
-FastAPI
-    Authentication and authorisation
-```
-
-External consumers only access approved curated data products.
-
----
-
-## Idempotency and Reproducibility
-
-The platform supports controlled reruns through:
-
-* idempotent reference-data seeding;
-* simulator full refresh;
-* shared extraction batch identity;
-* partitioned Raw datasets;
-* source-to-Raw reconciliation;
-* batch-aware downstream processing.
-
-Lakehouse processing is designed so rerunning a batch does not create duplicate analytical data.
-
----
-
-## Testability
-
-Each major architectural component has a dedicated testing boundary.
-
-Tests cover:
-
-* ORM models;
-* reference data;
-* simulator behaviour;
-* lifecycle rules;
-* quality checks;
-* extraction;
-* S3 ingestion;
-* Spark transformations;
-* dbt models;
-* metadata;
-* APIs;
-* data-sharing governance.
-
----
-
-## Infrastructure as Code
-
-Cloud infrastructure is managed through Terraform rather than manual configuration.
-
-This supports:
-
-* reproducible environments;
-* reviewable infrastructure changes;
-* environment separation;
-* disaster recovery;
-* CI/CD integration.
-
----
-
-## Orchestration Without Business Logic
-
-Workflow orchestration is kept separate from processing logic.
-
-```text
+data/raw/
 main.py
-    Local workflow interface
-
-Makefile
-    Developer shortcuts
-
-Airflow
-    Production orchestration
-
-Domain modules
-    Business and transformation logic
 ```
 
----
+The project also has a local PySpark foundation that is being extended
+into the Bronze layer.
 
-# End-to-End Repository Flow
+The next implementation should focus on:
 
-```text
-reference_data/
-        │
-        ▼
-database/
-        │
-        ▼
-simulator/
-        │
-        ▼
-quality/
-        │
-        ▼
-etl/
-        │
-        ▼
-Amazon S3 Raw
-        │
-        ▼
+``` text
+spark/common/
 spark/bronze/
-        │
-        ▼
-spark/silver/
-        │
-        ▼
-dbt/
-        │
-        ▼
-Gold Data Products
-        │
-        ├───────────────┬────────────────┐
-        ▼               ▼                ▼
- dashboards/        analytics/      data_sharing/
-                                         │
-                                         ▼
-                                        api/
-                                         │
-                                         ▼
-                                  Approved Consumers
+tests/spark/
 ```
 
----
+before introducing cloud orchestration.
+
+------------------------------------------------------------------------
+
+# Planned Implementation Sequence
+
+``` text
+1. Complete local Bronze PySpark processing
+2. Add Bronze validation and reconciliation
+3. Make Spark entry points portable with spark-submit
+4. Run Bronze manually on Amazon EMR
+5. Add Terraform for S3 / IAM / EMR
+6. Add S3 event → Lambda → EMR orchestration
+7. Implement Silver with PySpark and Spark SQL
+8. Create Gold domain data products
+9. Add dbt analytical models and tests
+10. Add metadata and lineage publication
+11. Add Power BI
+12. Add governed FastAPI sharing
+13. Add advanced analytics / ML
+```
+
+This order keeps infrastructure and orchestration behind proven
+transformation logic.
+
+------------------------------------------------------------------------
+
+# Architecture Principles
+
+## Clear Ownership
+
+``` text
+Python / SQLAlchemy    Operational simulation
+PostgreSQL             Operational persistence
+Python ETL             Extraction and Raw movement
+Amazon S3              Durable analytical storage
+PySpark / Spark SQL    Bronze and Silver engineering
+Amazon EMR             Managed Spark execution
+AWS Lambda             Event-trigger control plane
+dbt                    Gold analytical modelling
+Power BI               Business intelligence
+FastAPI                Governed delivery
+Terraform              Infrastructure provisioning
+GitHub Actions         CI/CD
+```
+
+## Portability
+
+Spark transformation code should not depend on notebook-only or
+vendor-specific APIs.
+
+## Event-Driven Where Appropriate
+
+Data-arrival workflows can use S3 events and Lambda, while recurring and
+dependency-heavy workloads may use scheduled orchestration.
+
+## Domain-Oriented Gold
+
+Gold datasets are grouped into workforce, recruitment, learning,
+performance, payroll and attrition products.
+
+## No Direct Raw Consumption
+
+Business users, APIs and ML consumers use curated Silver or Gold assets
+rather than Raw data.
+
+## Traceability
+
+Batch IDs, source files, extraction metadata and record hashes provide
+end-to-end lineage.
+
+------------------------------------------------------------------------
 
 # Summary
 
-The repository structure mirrors the architecture of the complete People Analytics Lakehouse Platform while keeping technology responsibilities clearly separated.
+The repository structure supports a staged evolution from the already
+working operational-to-Raw platform into an AWS-based distributed data
+platform.
 
-The core data lifecycle is:
+The immediate engineering focus is:
 
-```text
-Governed Reference Data
-        ↓
-Synthetic HRIS
-        ↓
-PostgreSQL
-        ↓
-Quality Validation
-        ↓
-Raw Parquet
-        ↓
-Amazon S3
-        ↓
-Databricks Bronze
-        ↓
-Databricks Silver
-        ↓
-dbt Gold
-        ↓
-Governed Data Products
-        ↓
-Power BI / Analytics / FastAPI
+``` text
+S3 Raw
+   ↓
+Portable PySpark Bronze
+   ↓
+Amazon EMR
 ```
 
-This architecture provides a scalable foundation for workforce analytics while demonstrating modern practices across data engineering, lakehouse architecture, analytics engineering, governance, infrastructure automation, orchestration and secure data sharing.
+followed by event-driven orchestration, Silver processing and
+domain-oriented Gold data products.
