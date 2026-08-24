@@ -49,16 +49,13 @@ def build_spark_session(
     logger.info(
         "Creating Spark session | "
         f"app={application_name} | "
-        f"master={settings.SPARK_MASTER}"
+        f"master={settings.SPARK_MASTER or 'runtime-provided'}"
     )
 
     builder = (
         SparkSession.builder
         .appName(
             application_name
-        )
-        .master(
-            settings.SPARK_MASTER
         )
         .config(
             "spark.sql.session.timeZone",
@@ -73,6 +70,11 @@ def build_spark_session(
             "true",
         )
     )
+
+    if settings.SPARK_MASTER:
+        builder = builder.master(
+            settings.SPARK_MASTER
+        )
 
     # ---------------------------------------------------------
     # Optional external Spark packages

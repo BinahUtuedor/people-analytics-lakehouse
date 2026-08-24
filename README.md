@@ -113,13 +113,15 @@ The project is being developed incrementally so that each architectural layer is
 - AWS/Boto3 configuration
 - End-to-end Raw pipeline commands
 - Local PySpark environment/foundation
+- Portable Raw-to-Bronze job modules for explicit batch processing
+- Bronze technical metadata, record hashing, validation and reconciliation
+- Duplicate-safe Bronze Parquet publication
+- Reproducible Linux Docker runtime for the complete Bronze Spark test suite
 
 ## Next Implementation
 
-- Local PySpark Bronze processing foundation
-- Bronze technical metadata and record hashing
-- Bronze reconciliation and validation
-- Portable Spark job entry points suitable for `spark-submit`
+- Run the first approved live S3 `business_units` Raw-to-Bronze integration
+  batch
 - Amazon EMR execution of Bronze workloads
 
 ## Planned
@@ -1022,7 +1024,24 @@ python main.py raw-pipeline
 python main.py full-refresh
 ```
 
-The next Spark milestone will introduce a separate Bronze command/job rather than changing the already working Raw pipeline prematurely.
+The Bronze foundation is implemented as a separate `spark/bronze/job.py` job
+and does not change the existing Raw pipeline or root CLI. The complete Bronze
+suite, including physical Parquet lineage and duplicate-publication tests, runs
+in the Linux `spark-tests` Docker service. The first live S3 `business_units`
+run remains pending.
+
+Run the authoritative complete suite from Windows or another Docker host with:
+
+```powershell
+docker compose run --rm --build spark-tests
+```
+
+Native Windows remains supported for ordinary Python development, mocked AWS
+tests and in-memory Spark work. Hadoop-backed local filesystem integration uses
+Linux Docker; the project deliberately does not ship unofficial `winutils.exe`
+binaries or add Windows-specific behavior to production Spark code. See
+`docs/development/spark-local-development.md` for the runtime versions and
+workflow.
 
 The intended progression is:
 
@@ -1100,7 +1119,7 @@ Silver Processing
 - Raw validation
 - Amazon S3 upload
 
-## Phase 7 — Bronze Foundation — Next
+## Phase 7 — Bronze Foundation — Implemented and Locally Verified
 
 - reusable SparkSession factory
 - Raw Parquet reader
@@ -1108,9 +1127,10 @@ Silver Processing
 - technical metadata
 - deterministic record hashing
 - Bronze writer
-- Bronze processor
+- portable Bronze job orchestration
 - `spark-submit` job entry point
 - Bronze validation
+- Linux Docker physical-filesystem integration testing
 
 ## Phase 8 — Amazon EMR
 

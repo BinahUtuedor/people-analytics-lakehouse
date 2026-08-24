@@ -192,7 +192,11 @@ Raw is immutable, source-aligned, batch-traceable and replayable.
 
 # 5. Bronze Layer
 
-Bronze is the next implementation priority.
+The portable Bronze code foundation is implemented. It includes explicit Raw
+batch selection, physical source-file lineage, technical metadata, deterministic
+record hashing, structural validation, Raw-to-Bronze reconciliation and
+duplicate-safe Parquet publication. The complete local suite is verified in a
+Linux Docker Spark runtime. The first live S3 integration run remains pending.
 
 The same Spark job should run locally and through `spark-submit` on
 Amazon EMR.
@@ -556,8 +560,8 @@ This provides defence in depth.
   Parquet extraction               Implemented
   Raw reconciliation               Implemented
   S3 Raw upload                    Implemented
-  Local PySpark foundation         Implemented / evolving
-  Bronze                           Next implementation
+  Local PySpark foundation         Implemented; Linux Docker suite verified
+  Bronze                           Implemented and locally verified; S3 integration not yet run
   Amazon EMR                       Planned next
   Event-driven S3 → Lambda → EMR   Planned
   Silver                           Planned

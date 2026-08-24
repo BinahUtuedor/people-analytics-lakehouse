@@ -236,12 +236,18 @@ people-analytics-lakehouse-platform/
 │   ├── operations/
 │   └── governance/
 │
+├── docker/
+│   └── spark-tests/
+│       └── Dockerfile
+│
+├── .dockerignore
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml
 ├── Makefile
 ├── main.py
 ├── requirements.txt
+├── requirements-spark-tests.txt
 ├── README.md
 └── LICENSE
 ```
@@ -503,18 +509,24 @@ data/raw/
 main.py
 ```
 
-The project also has a local PySpark foundation that is being extended
-into the Bronze layer.
+The project now has a portable Bronze code foundation under `spark/bronze/`.
+It provides explicit Raw batch discovery and reading, transformation, validation,
+reconciliation, duplicate-safe writing and a `spark-submit` entry point. The
+`spark-tests` Docker Compose service provides the Linux runtime for complete
+Bronze testing, including physical Parquet filesystem coverage. The first live
+S3 integration run remains pending.
 
-The next implementation should focus on:
+The next verification work should focus on:
 
 ``` text
-spark/common/
 spark/bronze/
 tests/spark/
+docker/spark-tests/
+docs/development/
 ```
 
-before introducing cloud orchestration.
+before introducing cloud orchestration. The existing operational-to-Raw
+pipeline and root CLI remain separate and unchanged.
 
 ------------------------------------------------------------------------
 

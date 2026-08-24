@@ -431,10 +431,10 @@ Run the smallest checks first from the repository root.
 python -m compileall config spark tests
 ```
 
-### Bronze unit tests
+### Bronze unit and local integration tests
 
 ```powershell
-python -m unittest discover -s tests/spark/bronze -p "test_*.py" -v
+docker compose run --rm --build spark-tests
 ```
 
 ### Existing CLI regression check
@@ -548,3 +548,23 @@ Completion of this plan does not claim Amazon EMR readiness until the separate
 manual EMR execution phase has been performed and validated. It also does not
 claim true idempotent replacement; automatic overwrite, deletion, and true
 retry/replacement semantics remain deferred.
+
+## 15. Implementation Progress
+
+Steps 1–8 were implemented without changing the existing Raw pipeline or root
+CLI. The original assumption that the complete suite would run directly on
+native Windows was refined after physical Parquet tests exercised Hadoop's
+local filesystem permission handling. Native Windows passes ordinary Python,
+mocked-infrastructure and in-memory Spark coverage, but Hadoop-backed local
+writes expect Windows-native support such as `winutils.exe`.
+
+The project deliberately does not distribute unofficial Windows Hadoop
+binaries or add Windows-specific workarounds to production Spark code. The
+complete Bronze suite now runs in a reproducible Linux Docker runtime using
+Python 3.12.10, JDK 21 and pinned PySpark 4.2.0. This retains native Windows for
+normal development while giving physical Spark filesystem integration tests
+closer parity with the future Linux/EMR runtime.
+
+Syntax compilation, the existing root CLI, the Bronze job CLI, and the full
+Docker Bronze suite are locally verified. No live Amazon S3 read/write or
+Amazon EMR execution has been performed; those remain separate milestones.

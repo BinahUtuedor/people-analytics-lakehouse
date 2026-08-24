@@ -748,6 +748,11 @@ For Spark work, prefer:
 -   metadata assertions;
 -   record-hash assertions.
 
+On Windows, use the Linux Docker Spark test runtime for the complete suite and
+physical local-filesystem integration tests. Do not add unofficial
+`winutils.exe` binaries or Windows-specific filesystem workarounds to
+platform-neutral production Spark code.
+
 Report commands that were not run and why.
 
 ------------------------------------------------------------------------

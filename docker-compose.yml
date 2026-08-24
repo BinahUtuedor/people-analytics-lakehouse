@@ -3,6 +3,37 @@ version: "3.9"
 services:
 
   ##########################################################################
+  # Linux Spark integration tests - development/test only
+  ##########################################################################
+
+  spark-tests:
+
+    build:
+      context: .
+      dockerfile: docker/spark-tests/Dockerfile
+
+    working_dir: /workspace
+
+    environment:
+      PYSPARK_PYTHON: /usr/local/bin/python
+      PYSPARK_DRIVER_PYTHON: /usr/local/bin/python
+      SPARK_LOCAL_IP: 127.0.0.1
+
+    volumes:
+      - .:/workspace
+
+    command:
+      - python
+      - -m
+      - unittest
+      - discover
+      - -s
+      - tests/spark/bronze
+      - -p
+      - test_*.py
+      - -v
+
+  ##########################################################################
   # PostgreSQL - Operational Database
   ##########################################################################
 

@@ -47,3 +47,5 @@ data/gold/*
 
 .DS_Store
 Thumbs.db
+
+venv-*/

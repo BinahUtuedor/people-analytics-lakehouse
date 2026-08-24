@@ -118,9 +118,10 @@ class Settings:
         "people-analytics-lakehouse",
     )
 
+    # Optional local-development override. When unset, spark-submit or the
+    # managed runtime supplies the master.
     SPARK_MASTER = os.getenv(
-        "SPARK_MASTER",
-        "local[*]",
+        "SPARK_MASTER"
     )
 
     SPARK_LOG_LEVEL = os.getenv(
@@ -140,30 +141,5 @@ class Settings:
     SPARK_JARS_PACKAGES = os.getenv(
         "SPARK_JARS_PACKAGES"
     )
-
-    # ======================================================
-    # Databricks
-    # ======================================================
-
-    DATABRICKS_HOST = os.getenv(
-        "DATABRICKS_HOST"
-    )
-
-    DATABRICKS_HTTP_PATH = os.getenv(
-        "DATABRICKS_HTTP_PATH"
-    )
-
-    DATABRICKS_TOKEN = os.getenv(
-        "DATABRICKS_TOKEN"
-    )
-
-    CATALOG = os.getenv(
-        "CATALOG"
-    )
-
-    SCHEMA = os.getenv(
-        "SCHEMA"
-    )
-
 
 settings = Settings()

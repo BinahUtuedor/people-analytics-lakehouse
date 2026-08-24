@@ -1,19 +1,8 @@
-"""
-Bronze Raw-layer reader.
+"""Discover and read validated Raw Parquet batches from Amazon S3.
 
-Responsibilities:
-
-- discover Raw Parquet objects in Amazon S3;
-- identify the most recent extraction batch for a table;
-- construct S3A paths for Spark;
-- read the selected Raw batch into a Spark DataFrame;
-- preserve Raw source columns and partition metadata.
-
-This module performs no Bronze transformations and writes no data.
-
-Run a test from the project root:
-
-    python -m spark.bronze.reader --table business_units
+The reader owns physical file lineage. It adds ``_source_file`` with Spark's
+``input_file_name()`` while the DataFrame still refers to the Raw files.
+Transformation and publication remain separate Bronze responsibilities.
 """
 
 from __future__ import annotations
@@ -22,580 +11,390 @@ import argparse
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
+from typing import Any
 
 import boto3
-from botocore.exceptions import (
-    BotoCoreError,
-    ClientError,
-)
-from pyspark.sql import DataFrame
-from pyspark.sql import SparkSession
+from botocore.exceptions import BotoCoreError, ClientError
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import input_file_name
 
 from config.logger import logger
 from config.settings import settings
-from spark.utilities import (
-    build_spark_session,
-    stop_spark,
-    validate_s3a_available,
-)
+from spark.utilities import build_spark_session, stop_spark, validate_s3a_available
+
+
+SOURCE_SYSTEM = "postgresql"
+SOURCE_SCHEMA = "public"
 
 
 class BronzeReadError(RuntimeError):
-    """
-    Raised when Raw data cannot be discovered or read.
-    """
+    """Raised when a Raw batch cannot be resolved or read safely."""
 
 
 @dataclass(frozen=True)
 class RawBatch:
-    """
-    Metadata describing one Raw extraction batch.
-
-    Attributes:
-        table_name:
-            Source PostgreSQL table.
-
-        bucket:
-            S3 bucket containing the Raw data.
-
-        batch_prefix:
-            Common S3 key prefix containing the batch.
-
-        parquet_keys:
-            Parquet objects belonging to the batch.
-
-        extraction_date:
-            Partition extraction date, when available.
-
-        batch_id:
-            Shared batch / extraction identifier, when available.
-
-        last_modified:
-            Latest S3 modification timestamp among batch objects.
-    """
+    """Resolved identity and location of one Raw table extraction."""
 
     table_name: str
     bucket: str
+    raw_prefix: str
     batch_prefix: str
     parquet_keys: tuple[str, ...]
-    extraction_date: str | None
-    batch_id: str | None
+    extraction_date: str
+    batch_id: str
+    extraction_id: str
     last_modified: datetime
+    source_system: str = SOURCE_SYSTEM
+    source_schema: str = SOURCE_SCHEMA
 
     @property
-    def s3a_batch_path(
-        self,
-    ) -> str:
-        """Return the S3A URI for the batch directory."""
+    def s3a_batch_path(self) -> str:
+        """Return the S3A URI of the extraction directory."""
 
-        return (
-            f"s3a://{self.bucket}/"
-            f"{self.batch_prefix}"
-        )
+        return f"s3a://{self.bucket}/{self.batch_prefix}"
 
     @property
-    def s3a_table_path(
-        self,
-    ) -> str:
-        """
-        Return the S3A table root.
+    def s3a_table_path(self) -> str:
+        """Return the S3A URI of the Raw table root."""
 
-        This is used as Spark's basePath so partition columns can be
-        discovered from directory names.
-        """
-
-        raw_prefix = (
-            settings.AWS_S3_RAW_PREFIX
-            .strip("/")
-        )
-
-        return (
-            f"s3a://{self.bucket}/"
-            f"{raw_prefix}/"
-            f"{self.table_name}"
-        )
+        return f"s3a://{self.bucket}/{self.raw_prefix}/{self.table_name}"
 
 
-def get_s3_client():
-    """
-    Create the Boto3 S3 client.
+def normalise_prefix(prefix: str) -> str:
+    """Normalise an S3 prefix without introducing a leading slash."""
 
-    Credentials are resolved by Boto3 from the environment/configured
-    AWS credential chain.
-    """
-
-    return boto3.client(
-        "s3",
-        region_name=settings.AWS_REGION,
-    )
+    return str(prefix).strip("/")
 
 
-def normalise_prefix(
-    prefix: str,
-) -> str:
-    """
-    Normalise an S3 prefix without introducing a leading slash.
-    """
+def _resolve_bucket(bucket: str | None) -> str:
+    resolved = bucket or settings.AWS_S3_BUCKET
+    if not resolved:
+        raise BronzeReadError("AWS_S3_BUCKET is not configured.")
+    return resolved
 
-    return prefix.strip("/")
+
+def _resolve_raw_prefix(raw_prefix: str | None) -> str:
+    resolved = normalise_prefix(raw_prefix or settings.AWS_S3_RAW_PREFIX)
+    if not resolved:
+        raise BronzeReadError("The Raw S3 prefix must not be empty.")
+    return resolved
 
 
 def build_table_prefix(
     table_name: str,
+    raw_prefix: str | None = None,
 ) -> str:
-    """
-    Build the S3 Raw prefix for one source table.
+    """Build the S3 Raw prefix for one source table."""
 
-    Example:
+    table = table_name.strip()
+    if not table:
+        raise ValueError("table_name must not be empty.")
+    return f"{_resolve_raw_prefix(raw_prefix)}/{table}/"
 
-        raw/postgresql/employees/
-    """
 
-    if not table_name.strip():
-        raise ValueError(
-            "table_name must not be empty."
-        )
+def get_s3_client(region: str | None = None):
+    """Create an S3 client using the standard AWS credential chain."""
 
-    raw_prefix = normalise_prefix(
-        settings.AWS_S3_RAW_PREFIX
-    )
-
-    return (
-        f"{raw_prefix}/"
-        f"{table_name.strip()}/"
-    )
+    return boto3.client("s3", region_name=region or settings.AWS_REGION)
 
 
 def list_raw_parquet_objects(
     table_name: str,
-) -> list[dict]:
-    """
-    List all Raw Parquet objects for a PostgreSQL source table.
+    *,
+    bucket: str | None = None,
+    raw_prefix: str | None = None,
+    s3_client: Any | None = None,
+) -> list[dict[str, Any]]:
+    """List all Raw Parquet objects for a table using S3 pagination."""
 
-    Uses pagination so discovery continues to work when a table prefix
-    contains more than 1,000 S3 objects.
-    """
-
-    if not settings.AWS_S3_BUCKET:
-        raise BronzeReadError(
-            "AWS_S3_BUCKET is not configured."
-        )
-
-    table_prefix = build_table_prefix(
-        table_name
-    )
-
+    resolved_bucket = _resolve_bucket(bucket)
+    table_prefix = build_table_prefix(table_name, raw_prefix)
+    client = s3_client or get_s3_client()
     logger.info(
         "Discovering Raw S3 objects | "
-        f"table={table_name} | "
-        f"prefix={table_prefix}"
+        f"table={table_name} | prefix={table_prefix}"
     )
 
-    client = get_s3_client()
-
-    paginator = client.get_paginator(
-        "list_objects_v2"
-    )
-
-    objects: list[dict] = []
-
+    objects: list[dict[str, Any]] = []
     try:
+        paginator = client.get_paginator("list_objects_v2")
         pages = paginator.paginate(
-            Bucket=settings.AWS_S3_BUCKET,
+            Bucket=resolved_bucket,
             Prefix=table_prefix,
         )
-
         for page in pages:
-            for item in page.get(
-                "Contents",
-                [],
-            ):
-                key = item[
-                    "Key"
-                ]
-
-                if key.lower().endswith(
-                    ".parquet"
-                ):
-                    objects.append(
-                        item
-                    )
-
-    except (
-        BotoCoreError,
-        ClientError,
-    ) as error:
+            for item in page.get("Contents", []):
+                if item["Key"].lower().endswith(".parquet"):
+                    objects.append(item)
+    except (BotoCoreError, ClientError) as error:
         raise BronzeReadError(
-            "Unable to list Raw S3 objects for "
-            f"table '{table_name}'."
+            f"Unable to list Raw S3 objects for table '{table_name}'."
         ) from error
 
     if not objects:
         raise BronzeReadError(
             "No Raw Parquet objects found for "
             f"table '{table_name}' under "
-            f"s3://{settings.AWS_S3_BUCKET}/"
-            f"{table_prefix}"
+            f"s3://{resolved_bucket}/{table_prefix}"
         )
-
-    logger.info(
-        "Raw Parquet objects discovered | "
-        f"table={table_name} | "
-        f"files={len(objects):,}"
-    )
-
     return objects
 
 
 def parse_partition_metadata(
     key: str,
-) -> tuple[
-    str | None,
-    str | None,
-]:
-    """
-    Extract extraction date and batch ID from an S3 object key.
-
-    Supported path components include:
-
-        extraction_date=2026-07-27
-        batch_id=<uuid>
-
-    and the earlier/raw-compatible form:
-
-        extraction_id=<uuid>
-
-    Supporting both forms keeps the Bronze reader backwards-compatible
-    with Raw data generated before the shared batch-ID migration.
-    """
+) -> tuple[str | None, str | None, str | None]:
+    """Return extraction date, shared batch ID, and extraction ID."""
 
     extraction_date: str | None = None
     batch_id: str | None = None
+    extraction_id: str | None = None
+    for component in PurePosixPath(key).parts:
+        if component.startswith("extraction_date="):
+            extraction_date = component.split("=", 1)[1]
+        elif component.startswith("batch_id="):
+            batch_id = component.split("=", 1)[1]
+        elif component.startswith("extraction_id="):
+            extraction_id = component.split("=", 1)[1]
+    return extraction_date, batch_id, extraction_id
 
-    path = PurePosixPath(
-        key
-    )
 
-    for component in path.parts:
+def get_batch_prefix(parquet_key: str) -> str:
+    """Return the extraction directory containing a Parquet object."""
 
-        if component.startswith(
-            "extraction_date="
-        ):
-            extraction_date = (
-                component.split(
-                    "=",
-                    1,
-                )[1]
+    return f"{PurePosixPath(parquet_key).parent.as_posix()}/"
+
+
+def _build_batch_candidates(
+    table_name: str,
+    objects: list[dict[str, Any]],
+    *,
+    bucket: str,
+    raw_prefix: str,
+) -> list[RawBatch]:
+    grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = {}
+    expected_table_prefix = f"{raw_prefix}/{table_name}/"
+    for item in objects:
+        key = item.get("Key")
+        last_modified = item.get("LastModified")
+        if not isinstance(key, str) or not isinstance(last_modified, datetime):
+            raise BronzeReadError("Raw S3 object metadata is incomplete.")
+        if not key.startswith(expected_table_prefix):
+            raise BronzeReadError(
+                "Raw object key is outside the requested table prefix: "
+                f"{key}"
             )
 
-        elif component.startswith(
-            "batch_id="
-        ):
-            batch_id = (
-                component.split(
-                    "=",
-                    1,
-                )[1]
+        extraction_date, batch_id, extraction_id = parse_partition_metadata(key)
+        if not extraction_date or not batch_id or not extraction_id:
+            raise BronzeReadError(
+                f"Raw object key has incomplete partition metadata: {key}"
             )
-
-        elif component.startswith(
-            "extraction_id="
-        ):
-            batch_id = (
-                component.split(
-                    "=",
-                    1,
-                )[1]
-            )
-
-    return (
-        extraction_date,
-        batch_id,
-    )
-
-
-def get_batch_prefix(
-    parquet_key: str,
-) -> str:
-    """
-    Return the parent prefix containing a Parquet file.
-    """
-
-    parent = (
-        PurePosixPath(
-            parquet_key
+        identity = (
+            extraction_date,
+            batch_id,
+            extraction_id,
+            get_batch_prefix(key),
         )
-        .parent
-    )
+        grouped.setdefault(identity, []).append(item)
 
-    return (
-        f"{parent.as_posix()}/"
-    )
+    candidates: list[RawBatch] = []
+    for identity, batch_objects in grouped.items():
+        extraction_date, batch_id, extraction_id, batch_prefix = identity
+        candidates.append(
+            RawBatch(
+                table_name=table_name,
+                bucket=bucket,
+                raw_prefix=raw_prefix,
+                batch_prefix=batch_prefix,
+                parquet_keys=tuple(
+                    sorted(item["Key"] for item in batch_objects)
+                ),
+                extraction_date=extraction_date,
+                batch_id=batch_id,
+                extraction_id=extraction_id,
+                last_modified=max(
+                    item["LastModified"] for item in batch_objects
+                ),
+            )
+        )
+    return candidates
+
+
+def discover_raw_batch(
+    table_name: str,
+    batch_id: str,
+    *,
+    bucket: str | None = None,
+    raw_prefix: str | None = None,
+    objects: list[dict[str, Any]] | None = None,
+    s3_client: Any | None = None,
+) -> RawBatch:
+    """Resolve exactly one extraction for a requested shared Raw batch."""
+
+    requested_batch = batch_id.strip()
+    if not requested_batch:
+        raise ValueError("batch_id must not be empty.")
+    resolved_bucket = _resolve_bucket(bucket)
+    resolved_prefix = _resolve_raw_prefix(raw_prefix)
+    raw_objects = objects
+    if raw_objects is None:
+        raw_objects = list_raw_parquet_objects(
+            table_name,
+            bucket=resolved_bucket,
+            raw_prefix=resolved_prefix,
+            s3_client=s3_client,
+        )
+    candidates = [
+        candidate
+        for candidate in _build_batch_candidates(
+            table_name,
+            raw_objects,
+            bucket=resolved_bucket,
+            raw_prefix=resolved_prefix,
+        )
+        if candidate.batch_id == requested_batch
+    ]
+    if not candidates:
+        raise BronzeReadError(
+            f"Raw batch '{requested_batch}' was not found for table "
+            f"'{table_name}'."
+        )
+    if len(candidates) > 1:
+        extraction_ids = sorted(
+            candidate.extraction_id for candidate in candidates
+        )
+        raise BronzeReadError(
+            f"Raw batch '{requested_batch}' is ambiguous for table "
+            f"'{table_name}'; extraction IDs: {extraction_ids}"
+        )
+    return candidates[0]
 
 
 def discover_latest_raw_batch(
     table_name: str,
+    *,
+    bucket: str | None = None,
+    raw_prefix: str | None = None,
+    objects: list[dict[str, Any]] | None = None,
+    s3_client: Any | None = None,
 ) -> RawBatch:
-    """
-    Discover the most recently modified Raw extraction batch.
+    """Resolve the most recently modified extraction for compatibility."""
 
-    S3 LastModified is used to determine recency instead of assuming
-    that lexical ordering of extraction IDs reflects processing order.
-    """
-
-    objects = list_raw_parquet_objects(
-        table_name
+    resolved_bucket = _resolve_bucket(bucket)
+    resolved_prefix = _resolve_raw_prefix(raw_prefix)
+    raw_objects = objects
+    if raw_objects is None:
+        raw_objects = list_raw_parquet_objects(
+            table_name,
+            bucket=resolved_bucket,
+            raw_prefix=resolved_prefix,
+            s3_client=s3_client,
+        )
+    candidates = _build_batch_candidates(
+        table_name,
+        raw_objects,
+        bucket=resolved_bucket,
+        raw_prefix=resolved_prefix,
     )
-
-    grouped: dict[
-        str,
-        list[dict],
-    ] = {}
-
-    for item in objects:
-        batch_prefix = (
-            get_batch_prefix(
-                item["Key"]
-            )
-        )
-
-        grouped.setdefault(
-            batch_prefix,
-            [],
-        ).append(
-            item
-        )
-
-    batch_candidates: list[
-        RawBatch
-    ] = []
-
-    for (
-        batch_prefix,
-        batch_objects,
-    ) in grouped.items():
-
-        latest_modified = max(
-            item["LastModified"]
-            for item in batch_objects
-        )
-
-        sample_key = (
-            batch_objects[0][
-                "Key"
-            ]
-        )
-
-        (
-            extraction_date,
-            batch_id,
-        ) = parse_partition_metadata(
-            sample_key
-        )
-
-        parquet_keys = tuple(
-            sorted(
-                item["Key"]
-                for item
-                in batch_objects
-            )
-        )
-
-        batch_candidates.append(
-            RawBatch(
-                table_name=table_name,
-                bucket=(
-                    settings
-                    .AWS_S3_BUCKET
-                ),
-                batch_prefix=(
-                    batch_prefix
-                ),
-                parquet_keys=(
-                    parquet_keys
-                ),
-                extraction_date=(
-                    extraction_date
-                ),
-                batch_id=batch_id,
-                last_modified=(
-                    latest_modified
-                ),
-            )
-        )
-
-    latest_batch = max(
-        batch_candidates,
-        key=lambda batch: (
-            batch.last_modified
-        ),
-    )
-
-    logger.info(
-        "Latest Raw batch discovered | "
-        f"table={table_name} | "
-        f"extraction_date="
-        f"{latest_batch.extraction_date} | "
-        f"batch_id={latest_batch.batch_id} | "
-        f"files="
-        f"{len(latest_batch.parquet_keys):,}"
-    )
-
-    return latest_batch
+    if not candidates:
+        raise BronzeReadError(f"No Raw batches were found for '{table_name}'.")
+    return max(candidates, key=lambda candidate: candidate.last_modified)
 
 
-def read_raw_batch(
+def read_parquet_with_lineage(
     spark: SparkSession,
-    batch: RawBatch,
+    input_path: str,
 ) -> DataFrame:
-    """
-    Read one Raw batch into a Spark DataFrame.
+    """Read Parquet and capture physical file provenance immediately."""
 
-    Spark's basePath is set to the table root so partition information
-    encoded in paths remains available when applicable.
-    """
+    return (
+        spark.read.parquet(input_path)
+        .withColumn("_source_file", input_file_name())
+    )
+
+
+def read_raw_batch(spark: SparkSession, batch: RawBatch) -> DataFrame:
+    """Read one Raw extraction and capture physical source-file lineage."""
 
     logger.info(
         "Reading Raw Parquet batch with Spark | "
-        f"table={batch.table_name} | "
-        f"path={batch.s3a_batch_path}"
+        f"table={batch.table_name} | path={batch.s3a_batch_path}"
     )
-
     try:
-        dataframe = (
-            spark.read
-            .option(
-                "basePath",
-                batch.s3a_table_path,
-            )
-            .parquet(
-                batch.s3a_batch_path
-            )
-        )
-
+        return read_parquet_with_lineage(spark, batch.s3a_batch_path)
     except Exception as error:
         raise BronzeReadError(
             "Spark failed to read Raw Parquet data for "
-            f"table '{batch.table_name}' from "
-            f"{batch.s3a_batch_path}."
+            f"table '{batch.table_name}' from {batch.s3a_batch_path}."
         ) from error
 
-    logger.info(
-        "Raw batch loaded into Spark | "
-        f"table={batch.table_name} | "
-        f"columns={len(dataframe.columns)}"
-    )
 
-    return dataframe
+def read_raw_table(
+    spark: SparkSession,
+    table_name: str,
+    batch_id: str,
+    **discovery_options: Any,
+) -> tuple[DataFrame, RawBatch]:
+    """Resolve and read a requested shared Raw batch."""
+
+    batch = discover_raw_batch(
+        table_name,
+        batch_id,
+        **discovery_options,
+    )
+    return read_raw_batch(spark, batch), batch
 
 
 def read_latest_raw_table(
     spark: SparkSession,
     table_name: str,
-) -> tuple[
-    DataFrame,
-    RawBatch,
-]:
-    """
-    Discover and read the latest Raw extraction for a table.
+    **discovery_options: Any,
+) -> tuple[DataFrame, RawBatch]:
+    """Resolve and read the latest Raw extraction for compatibility."""
 
-    Returns:
-        Tuple containing:
-        - Spark DataFrame
-        - RawBatch metadata
-    """
-
-    batch = (
-        discover_latest_raw_batch(
-            table_name
-        )
-    )
-
-    dataframe = read_raw_batch(
-        spark=spark,
-        batch=batch,
-    )
-
-    return (
-        dataframe,
-        batch,
-    )
+    batch = discover_latest_raw_batch(table_name, **discovery_options)
+    return read_raw_batch(spark, batch), batch
 
 
 def parse_args() -> argparse.Namespace:
-    """
-    Parse command-line arguments for standalone reader testing.
-    """
+    """Parse reader smoke-test arguments."""
 
     parser = argparse.ArgumentParser(
-        description=(
-            "Test reading a Raw S3 Parquet "
-            "batch using Spark."
-        )
+        description="Test reading a Raw S3 Parquet batch using Spark."
     )
-
-    parser.add_argument(
-        "--table",
-        required=True,
-        help=(
-            "PostgreSQL source table to read, "
-            "for example business_units."
-        ),
-    )
-
+    parser.add_argument("--table", required=True)
+    parser.add_argument("--batch-id")
     return parser.parse_args()
 
 
 def main() -> None:
-    """
-    Standalone Bronze-reader test entry point.
-    """
+    """Run the standalone reader smoke test."""
 
     args = parse_args()
-
     spark: SparkSession | None = None
-
     try:
         spark = build_spark_session(
-            app_name=(
-                "people-analytics-"
-                "bronze-reader-test"
+            app_name="people-analytics-bronze-reader-test"
+        )
+        validate_s3a_available(spark)
+        if args.batch_id:
+            dataframe, batch = read_raw_table(
+                spark,
+                args.table,
+                args.batch_id,
             )
-        )
-
-        validate_s3a_available(
-            spark
-        )
-
-        dataframe, batch = (
-            read_latest_raw_table(
-                spark=spark,
-                table_name=args.table,
-            )
-        )
-
-        row_count = (
-            dataframe.count()
-        )
-
+        else:
+            dataframe, batch = read_latest_raw_table(spark, args.table)
         logger.info(
             "Bronze reader test successful | "
-            f"table={args.table} | "
-            f"rows={row_count:,} | "
-            f"batch_id={batch.batch_id}"
+            f"table={args.table} | rows={dataframe.count():,} | "
+            f"batch_id={batch.batch_id} | "
+            f"extraction_id={batch.extraction_id}"
         )
-
         dataframe.printSchema()
-
-        dataframe.show(
-            10,
-            truncate=False,
-        )
-
+        dataframe.show(10, truncate=False)
     finally:
-        stop_spark(
-            spark
-        )
+        stop_spark(spark)
 
 
 if __name__ == "__main__":

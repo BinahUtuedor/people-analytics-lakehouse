@@ -363,7 +363,8 @@ Initial Bronze, Silver and Gold storage uses Parquet on S3.
 
 # 10. Bronze Flow
 
-Bronze is the next implementation priority.
+Bronze processing and its local Linux Docker integration-test runtime are
+implemented. Live S3 execution remains the next verification milestone.
 
 ``` text
 S3 Raw Parquet
@@ -573,8 +574,8 @@ Approved Consumer
   Raw extraction reconciliation              Implemented
   Amazon S3 Raw upload                       Implemented
   Root platform CLI                          Implemented
-  Local PySpark foundation                   Implemented / evolving
-  Bronze processing                          Next implementation
+  Local PySpark foundation                   Implemented; Linux Docker suite verified
+  Bronze processing                          Implemented and locally verified; S3 integration not yet run
   Amazon EMR execution                       Planned next
   S3 → Lambda → EMR event trigger            Planned
   Silver PySpark / Spark SQL                 Planned
