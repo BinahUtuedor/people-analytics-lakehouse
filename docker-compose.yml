@@ -71,6 +71,38 @@ services:
       - --help
 
   ##########################################################################
+  # EMR 7.13 compatibility gate - local/static only
+  ##########################################################################
+
+  emr-compat-tests:
+
+    build:
+      context: .
+      dockerfile: docker/emr-compat/Dockerfile
+
+    working_dir: /workspace
+
+    environment:
+      PYTHONPATH: /workspace
+      PYSPARK_PYTHON: /usr/local/bin/python
+      PYSPARK_DRIVER_PYTHON: /usr/local/bin/python
+      SPARK_LOCAL_IP: 127.0.0.1
+
+    volumes:
+      - .:/workspace
+
+    command:
+      - python
+      - -m
+      - unittest
+      - discover
+      - -s
+      - tests/spark/bronze
+      - -p
+      - test_*.py
+      - -v
+
+  ##########################################################################
   # PostgreSQL - Operational Database
   ##########################################################################
 

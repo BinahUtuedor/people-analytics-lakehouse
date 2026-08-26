@@ -9,7 +9,7 @@
 	db-create db-seed \
 	simulate simulate-full validate \
 	extract validate-raw upload-s3 raw-pipeline full-refresh \
-	bronze-test bronze-all bronze-verify \
+	bronze-test bronze-all bronze-verify emr-package emr-compat-test \
 	docker-up docker-down docker-logs
 
 
@@ -48,6 +48,8 @@ help:
 	@echo "  make bronze-test"
 	@echo "  make bronze-all BATCH_ID=<validated-batch-id>"
 	@echo "  make bronze-verify BATCH_ID=<validated-batch-id>"
+	@echo "  make emr-package"
+	@echo "  make emr-compat-test"
 	@echo ""
 	@echo "Platform"
 	@echo "  make full-refresh"
@@ -167,6 +169,17 @@ bronze-all:
 
 bronze-verify:
 	docker compose run --rm spark-bronze --all-tables --batch-id $(BATCH_ID) --verify-existing
+
+
+###############################################################################
+# Amazon EMR preparation - local build/test only; no AWS calls
+###############################################################################
+
+emr-package:
+	docker compose run --rm emr-compat-tests python scripts/build_emr_bundle.py
+
+emr-compat-test:
+	docker compose run --rm --build emr-compat-tests
 
 
 ###############################################################################

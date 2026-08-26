@@ -1,0 +1,13 @@
+# Pure-Python runtime dependencies bundled with the Bronze application.
+# PySpark is intentionally excluded because Amazon EMR supplies Spark.
+boto3==1.43.78
+botocore==1.43.78
+jmespath==1.1.0
+loguru==0.7.3
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.3
+s3transfer==0.19.2
+six==1.17.0
+urllib3==2.7.0
+colorama==0.4.6; sys_platform == "win32"
+win32-setctime==1.2.0; sys_platform == "win32"

@@ -517,12 +517,20 @@ Bronze testing, including physical Parquet filesystem coverage. All 17
 supported datasets in one shared Raw batch have been published and verified in
 S3 Bronze.
 
+`scripts/build_emr_bundle.py` now creates an ignored, checksummed deployment
+bundle for that same entry point. `docker/emr-compat/` provides a non-live
+Python 3.11, Java 17 and Spark 3.5.6 compatibility gate for the initial EMR
+7.13 target. Neither component provisions infrastructure or submits a cloud
+job.
+
 The next verification work should focus on:
 
 ``` text
 spark/bronze/
 tests/spark/
 docker/spark-tests/
+docker/emr-compat/
+scripts/build_emr_bundle.py
 docs/development/
 ```
 

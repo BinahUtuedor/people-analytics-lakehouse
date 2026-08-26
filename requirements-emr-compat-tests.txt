@@ -1,0 +1,4 @@
+# Local approximation of the emr-7.13.0 Python/Spark runtime.
+-r requirements-emr.txt
+py4j==0.10.9.7
+pyspark==3.5.6

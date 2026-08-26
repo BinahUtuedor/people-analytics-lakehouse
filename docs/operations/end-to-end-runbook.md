@@ -180,6 +180,8 @@ The implemented and verified boundary is:
 Governed YAML → PostgreSQL → Validation → Raw Parquet → S3 Raw → S3 Bronze
 ```
 
-The next milestone is packaging and manually executing the same portable
-Bronze workload on Amazon EMR. Do not add Lambda orchestration before that
-manual EMR run succeeds.
+The repository now includes non-live EMR packaging and a Spark 3.5.6
+compatibility gate. Follow `docs/operations/emr-manual-runbook.md` to build and
+review the artifacts and runtime requirements. Manual EMR execution still
+requires separate explicit approval. Do not add Lambda orchestration before
+that manual EMR run succeeds.

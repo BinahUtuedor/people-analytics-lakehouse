@@ -120,10 +120,14 @@ The project is being developed incrementally so that each architectural layer is
 - Full 17-dataset S3 Raw-to-Bronze batch processing and verification
 - Resume-safe verification of existing Bronze partitions
 - End-to-end operational runbook from clone through S3 Bronze
+- Deterministic EMR application packaging with pinned Python dependencies
+- Local Python 3.11 / Java 17 / Spark 3.5.6 EMR compatibility gate
+- Documented EMR IAM, S3, networking, logging and runtime requirements
 
 ## Next Implementation
 
-- Package and run the same multi-table Bronze workload manually on Amazon EMR
+- Obtain explicit approval and run the packaged multi-table Bronze workload
+  manually on Amazon EMR
 
 ## Planned
 
@@ -1007,6 +1011,7 @@ Detailed project documentation is maintained under `docs/`.
 | `docs/data-governance/security-and-data-sharing.md` | Data-sharing security and governance |
 | `docs/implementation/` | Implementation and operational guides |
 | `docs/operations/end-to-end-runbook.md` | Clone-to-Bronze execution and recovery runbook |
+| `docs/operations/emr-manual-runbook.md` | Non-live EMR preparation and future approval-gated execution runbook |
 | `docs/architecture/decisions/` | Architecture Decision Records |
 
 ---
@@ -1142,9 +1147,11 @@ Silver Processing
 
 ## Phase 8 — Amazon EMR
 
-- EMR infrastructure
-- Spark job packaging
-- dependency management
+- Spark job packaging — implemented and locally validated
+- dependency management — implemented with a pinned self-contained bundle
+- EMR 7.13 Spark compatibility gate — implemented locally
+- documented IAM, S3, network, logging and runtime requirements — implemented
+- EMR infrastructure — not created
 - manual Bronze execution
 - EMR logging and operational validation
 
