@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from spark.utilities import build_spark_session
+from spark.utilities import build_spark_session, validate_s3a_available
 
 
 class SparkUtilityTests(TestCase):
@@ -34,3 +34,14 @@ class SparkUtilityTests(TestCase):
     def test_explicit_local_master_is_applied(self) -> None:
         builder = self._build_with_master("local[1]")
         builder.master.assert_called_once_with("local[1]")
+
+    def test_s3a_validation_uses_hadoop_filesystem_resolution(self) -> None:
+        spark = MagicMock()
+
+        validate_s3a_available(spark)
+
+        filesystem = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem
+        filesystem.getFileSystemClass.assert_called_once_with(
+            "s3a",
+            spark.sparkContext._jsc.hadoopConfiguration.return_value,
+        )

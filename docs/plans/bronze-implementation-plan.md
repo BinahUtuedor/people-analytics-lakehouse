@@ -566,5 +566,9 @@ normal development while giving physical Spark filesystem integration tests
 closer parity with the future Linux/EMR runtime.
 
 Syntax compilation, the existing root CLI, the Bronze job CLI, and the full
-Docker Bronze suite are locally verified. No live Amazon S3 read/write or
-Amazon EMR execution has been performed; those remain separate milestones.
+Docker Bronze suite are locally verified. On 2026-08-26, batch
+`fc4e3604-70f2-43f8-96ff-419e9d3046e5` completed the first controlled live
+Amazon S3 `business_units` Raw-to-Bronze run. Raw and Bronze counts reconciled
+at four rows, required metadata and hashes were independently verified, and a
+repeat submission failed without changing the existing `_SUCCESS` and Parquet
+objects. No other dataset or Amazon EMR execution has been attempted.

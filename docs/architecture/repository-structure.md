@@ -513,8 +513,9 @@ The project now has a portable Bronze code foundation under `spark/bronze/`.
 It provides explicit Raw batch discovery and reading, transformation, validation,
 reconciliation, duplicate-safe writing and a `spark-submit` entry point. The
 `spark-tests` Docker Compose service provides the Linux runtime for complete
-Bronze testing, including physical Parquet filesystem coverage. The first live
-S3 integration run remains pending.
+Bronze testing, including physical Parquet filesystem coverage. One controlled
+live S3 `business_units` batch has been published and verified. Other datasets
+have not yet been processed to Bronze.
 
 The next verification work should focus on:
 

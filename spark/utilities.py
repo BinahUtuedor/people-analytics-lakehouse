@@ -179,14 +179,14 @@ def validate_s3a_available(
     """
 
     try:
-        java_class = (
+        hadoop_configuration = (
             spark.sparkContext
-            ._jvm
-            .java.lang.Class
+            ._jsc
+            .hadoopConfiguration()
         )
-
-        java_class.forName(
-            "org.apache.hadoop.fs.s3a.S3AFileSystem"
+        spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.getFileSystemClass(
+            "s3a",
+            hadoop_configuration,
         )
 
     except Exception as error:

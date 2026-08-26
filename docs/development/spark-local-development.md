@@ -89,5 +89,7 @@ Most Bronze tests also run natively. Use the Docker command as the authoritative
 complete suite because it includes real source-file lineage and duplicate-safe
 physical Parquet publication.
 
-Live S3 Raw-to-Bronze integration and manual Amazon EMR execution are separate,
-deferred milestones and require explicit authorised cloud configuration.
+One explicitly authorised live S3 Raw-to-Bronze integration has been completed
+for `business_units`. Further datasets remain deferred. Manual Amazon EMR
+execution is the next separate milestone and requires authorised cloud
+configuration.

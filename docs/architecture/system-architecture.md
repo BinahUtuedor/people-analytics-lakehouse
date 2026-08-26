@@ -196,7 +196,8 @@ The portable Bronze code foundation is implemented. It includes explicit Raw
 batch selection, physical source-file lineage, technical metadata, deterministic
 record hashing, structural validation, Raw-to-Bronze reconciliation and
 duplicate-safe Parquet publication. The complete local suite is verified in a
-Linux Docker Spark runtime. The first live S3 integration run remains pending.
+Linux Docker Spark runtime. One controlled live S3 `business_units` batch is
+published and verified; processing other datasets remains deferred.
 
 The same Spark job should run locally and through `spark-submit` on
 Amazon EMR.
@@ -561,7 +562,7 @@ This provides defence in depth.
   Raw reconciliation               Implemented
   S3 Raw upload                    Implemented
   Local PySpark foundation         Implemented; Linux Docker suite verified
-  Bronze                           Implemented and locally verified; S3 integration not yet run
+  Bronze                           Implemented; live S3 `business_units` batch verified
   Amazon EMR                       Planned next
   Event-driven S3 → Lambda → EMR   Planned
   Silver                           Planned

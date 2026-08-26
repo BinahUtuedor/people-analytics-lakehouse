@@ -117,12 +117,11 @@ The project is being developed incrementally so that each architectural layer is
 - Bronze technical metadata, record hashing, validation and reconciliation
 - Duplicate-safe Bronze Parquet publication
 - Reproducible Linux Docker runtime for the complete Bronze Spark test suite
+- Controlled live S3 Raw-to-Bronze publication for one `business_units` batch
 
 ## Next Implementation
 
-- Run the first approved live S3 `business_units` Raw-to-Bronze integration
-  batch
-- Amazon EMR execution of Bronze workloads
+- Prepare and run the same Bronze workload manually on Amazon EMR
 
 ## Planned
 
@@ -349,7 +348,7 @@ Raw data provides the immutable source representation required for downstream pr
 
 Bronze provides a source-conformed representation of Raw datasets with additional ingestion metadata.
 
-The target Bronze process is:
+The implemented Bronze process is:
 
 ```text
 S3 Raw
@@ -363,7 +362,7 @@ Technical metadata enrichment
 S3 Bronze
 ```
 
-Bronze will preserve source business values while adding technical metadata such as:
+Bronze preserves source business values while adding technical metadata such as:
 
 - `_bronze_ingested_at`
 - `_source_system`
@@ -1027,8 +1026,10 @@ python main.py full-refresh
 The Bronze foundation is implemented as a separate `spark/bronze/job.py` job
 and does not change the existing Raw pipeline or root CLI. The complete Bronze
 suite, including physical Parquet lineage and duplicate-publication tests, runs
-in the Linux `spark-tests` Docker service. The first live S3 `business_units`
-run remains pending.
+in the Linux `spark-tests` Docker service. One controlled live S3
+`business_units` batch has passed transformation, validation, four-to-four
+row-count reconciliation and duplicate-safe publication. Other datasets have
+not yet been processed to Bronze.
 
 Run the authoritative complete suite from Windows or another Docker host with:
 
@@ -1119,7 +1120,7 @@ Silver Processing
 - Raw validation
 - Amazon S3 upload
 
-## Phase 7 — Bronze Foundation — Implemented and Locally Verified
+## Phase 7 — Bronze Foundation — Implemented and S3 Verified for `business_units`
 
 - reusable SparkSession factory
 - Raw Parquet reader
@@ -1131,6 +1132,8 @@ Silver Processing
 - `spark-submit` job entry point
 - Bronze validation
 - Linux Docker physical-filesystem integration testing
+- one controlled live S3 Raw-to-Bronze `business_units` publication
+- duplicate-submission failure verified without changing published objects
 
 ## Phase 8 — Amazon EMR
 

@@ -4,11 +4,15 @@
 
 The portable Bronze code foundation is implemented. The complete Bronze suite,
 including real Parquet source-file lineage and duplicate-safe physical Parquet
-publication, is verified in the Linux Docker Spark test runtime. Native Windows
+publication, is verified in the Linux Docker Spark test runtime. One controlled
+live Amazon S3 integration run has also succeeded for `business_units` batch
+`fc4e3604-70f2-43f8-96ff-419e9d3046e5`, with four Raw rows reconciled to four
+Bronze rows. A repeat submission failed on the existing output path and left
+the two published objects unchanged. Native Windows
 remains suitable for ordinary development and in-memory Spark work, but its
 Hadoop local filesystem requires Windows-native support for these physical
 writes. The project deliberately does not distribute unofficial `winutils.exe`
-binaries. No live Amazon S3 integration run has been performed.
+binaries. No other dataset has been processed to Bronze.
 
 Amazon EMR execution, Lambda orchestration, Silver and Gold processing remain
 planned or deferred.
@@ -136,12 +140,24 @@ The authoritative complete Bronze suite is:
 docker compose run --rm --build spark-tests
 ```
 
-After local Spark DataFrame tests pass and a live S3 run is approved, the first
-`business_units` command is:
+The first `business_units` run was executed in the supported Linux Docker Spark
+runtime with the repository mounted at `/workspace`, `PYTHONPATH=/workspace`,
+and the Hadoop-compatible S3A package supplied through
+`SPARK_JARS_PACKAGES`. A reusable operational wrapper is deferred until the
+manual Amazon EMR packaging milestone.
+
+The live command shape was:
 
 ```powershell
-.\venv\Scripts\spark-submit.cmd --master "local[*]" spark\bronze\job.py --table business_units --batch-id <validated-raw-batch-id>
+docker compose run --rm `
+  -e PYTHONPATH=/workspace `
+  -e SPARK_JARS_PACKAGES=org.apache.hadoop:hadoop-aws:<matching-version> `
+  spark-tests python spark/bronze/job.py `
+  --table business_units `
+  --batch-id <validated-raw-batch-id>
 ```
 
 The batch ID must identify an existing Raw batch that passed Raw validation and
-was uploaded successfully. This command has not yet been run against Amazon S3.
+was uploaded successfully. Native Windows `spark-submit` remains unsuitable for
+this physical integration because the project does not distribute
+`winutils.exe`.
