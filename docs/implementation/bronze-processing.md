@@ -5,14 +5,13 @@
 The portable Bronze code foundation is implemented. The complete Bronze suite,
 including real Parquet source-file lineage and duplicate-safe physical Parquet
 publication, is verified in the Linux Docker Spark test runtime. One controlled
-live Amazon S3 integration run has also succeeded for `business_units` batch
-`fc4e3604-70f2-43f8-96ff-419e9d3046e5`, with four Raw rows reconciled to four
-Bronze rows. A repeat submission failed on the existing output path and left
-the two published objects unchanged. Native Windows
+live Amazon S3 integration has also succeeded for all 17 supported datasets in
+batch `fc4e3604-70f2-43f8-96ff-419e9d3046e5`, with 885,037 Raw rows
+reconciled to 885,037 Bronze rows. Native Windows
 remains suitable for ordinary development and in-memory Spark work, but its
 Hadoop local filesystem requires Windows-native support for these physical
 writes. The project deliberately does not distribute unofficial `winutils.exe`
-binaries. No other dataset has been processed to Bronze.
+binaries.
 
 Amazon EMR execution, Lambda orchestration, Silver and Gold processing remain
 planned or deferred.
@@ -48,13 +47,20 @@ raw/postgresql/<table>/
                 part-*.parquet
 ```
 
-The production job requires an explicit table and shared batch ID. Batch ID and
+The production job requires an explicit shared batch ID plus either one table
+or `--all-tables`. Batch ID and
 table extraction ID are parsed and validated independently. Ambiguous or
 incomplete Raw partitions fail before Spark reads the dataset.
 
 The reader captures physical file provenance with Spark `input_file_name()` and
 adds `_source_file` during the Raw read. The transformer preserves that value;
 it does not reconstruct file provenance later.
+
+Raw Parquet written by pandas/PyArrow can contain `TIMESTAMP(NANOS)` and `TIME`
+logical types that Spark 4.2 cannot infer. The reader inspects Parquet footers,
+converts only confirmed nanosecond timestamps to Spark's microsecond timestamp
+precision, and represents confirmed time-of-day values as canonical
+`HH:mm:ss.SSSSSS` strings. Immutable Raw objects are not rewritten.
 
 ## Bronze Metadata and Record Hash
 
@@ -108,6 +114,10 @@ Spark write mode is `errorifexists`:
 This is duplicate-safe batch publication, not true idempotent replacement.
 Automatic cleanup, overwrite and retry/replacement semantics are deferred.
 
+For controlled resume, `--verify-existing` reads and fully validates an existing
+Bronze partition against Raw before continuing. It checks deterministic hash
+content as well as hash format. Missing partitions are processed normally.
+
 ## Configuration and Portability
 
 `SPARK_MASTER` is an optional local override. When it is unset, the Spark
@@ -140,6 +150,18 @@ The authoritative complete Bronze suite is:
 docker compose run --rm --build spark-tests
 ```
 
+Process a new full Raw batch:
+
+```powershell
+docker compose run --rm spark-bronze --all-tables --batch-id <validated-raw-batch-id>
+```
+
+Verify or resume a batch without blindly skipping existing output:
+
+```powershell
+docker compose run --rm spark-bronze --all-tables --batch-id <validated-raw-batch-id> --verify-existing
+```
+
 The first `business_units` run was executed in the supported Linux Docker Spark
 runtime with the repository mounted at `/workspace`, `PYTHONPATH=/workspace`,
 and the Hadoop-compatible S3A package supplied through
@@ -161,3 +183,6 @@ The batch ID must identify an existing Raw batch that passed Raw validation and
 was uploaded successfully. Native Windows `spark-submit` remains unsuitable for
 this physical integration because the project does not distribute
 `winutils.exe`.
+
+See `docs/operations/end-to-end-runbook.md` for the complete clone-to-Bronze
+workflow.

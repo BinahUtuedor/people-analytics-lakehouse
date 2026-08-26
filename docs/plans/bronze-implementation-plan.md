@@ -571,4 +571,11 @@ Docker Bronze suite are locally verified. On 2026-08-26, batch
 Amazon S3 `business_units` Raw-to-Bronze run. Raw and Bronze counts reconciled
 at four rows, required metadata and hashes were independently verified, and a
 repeat submission failed without changing the existing `_SUCCESS` and Parquet
-objects. No other dataset or Amazon EMR execution has been attempted.
+objects. At that point, no other dataset or Amazon EMR execution had been
+attempted.
+
+On 2026-08-26, the same batch was completed across all 17 supported datasets.
+The multi-table run reconciled 885,037 Raw rows to 885,037 Bronze rows. The job
+resumed safely by fully revalidating existing partitions and publishing only
+absent ones. S3 inventory confirmed Parquet output and `_SUCCESS` for every
+supported dataset. Manual Amazon EMR execution remains the next milestone.

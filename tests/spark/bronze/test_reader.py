@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 from spark.bronze.reader import (
     BronzeReadError,
+    ParquetCompatibility,
     build_table_prefix,
     discover_raw_batch,
     list_raw_parquet_objects,
@@ -128,6 +129,48 @@ class ReaderDiscoveryTests(TestCase):
 
 
 class ReaderLineageTests(SparkTestCase):
+    def test_nanos_timestamp_is_converted_at_reader_boundary(self) -> None:
+        nanos = 1_787_587_200_123_456_000
+        dataframe = self.spark.createDataFrame(
+            [(nanos,)],
+            ["event_date"],
+        )
+        with TemporaryDirectory() as directory:
+            raw_path = Path(directory) / "raw-nanos-as-long"
+            dataframe.write.parquet(str(raw_path))
+            converted = read_parquet_with_lineage(
+                self.spark,
+                str(raw_path),
+                ParquetCompatibility(
+                    nanos_timestamp_columns=("event_date",),
+                ),
+            )
+
+            self.assertEqual(
+                converted.select("event_date").first()[0],
+                datetime(2026, 8, 24, 16, 0, 0, 123456),
+            )
+
+    def test_time_micros_is_converted_to_canonical_string(self) -> None:
+        micros = ((9 * 60 + 30) * 60 * 1_000_000) + 123_456
+        dataframe = self.spark.createDataFrame(
+            [(micros,)],
+            ["clock_in_time"],
+        )
+        with TemporaryDirectory() as directory:
+            raw_path = Path(directory) / "raw-time-as-long"
+            dataframe.write.parquet(str(raw_path))
+            converted = read_parquet_with_lineage(
+                self.spark,
+                str(raw_path),
+                ParquetCompatibility(time_columns=("clock_in_time",)),
+            )
+
+            self.assertEqual(
+                converted.select("clock_in_time").first()[0],
+                "09:30:00.123456",
+            )
+
     def test_file_lineage_is_captured_during_read(self) -> None:
         with TemporaryDirectory() as directory:
             raw_path = Path(directory) / "raw"

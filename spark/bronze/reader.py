@@ -16,7 +16,21 @@ from typing import Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 from pyspark.sql.functions import input_file_name
+from pyspark.sql.types import (
+    BinaryType,
+    BooleanType,
+    DateType,
+    DoubleType,
+    FloatType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 from config.logger import logger
 from config.settings import settings
@@ -58,6 +72,15 @@ class RawBatch:
         """Return the S3A URI of the Raw table root."""
 
         return f"s3a://{self.bucket}/{self.raw_prefix}/{self.table_name}"
+
+
+@dataclass(frozen=True)
+class ParquetCompatibility:
+    """Spark read contract for Parquet logical types it cannot infer."""
+
+    schema: StructType | None = None
+    nanos_timestamp_columns: tuple[str, ...] = ()
+    time_columns: tuple[str, ...] = ()
 
 
 def normalise_prefix(prefix: str) -> str:
@@ -304,12 +327,165 @@ def discover_latest_raw_batch(
 def read_parquet_with_lineage(
     spark: SparkSession,
     input_path: str,
+    compatibility: ParquetCompatibility | None = None,
 ) -> DataFrame:
     """Read Parquet and capture physical file provenance immediately."""
 
-    return (
-        spark.read.parquet(input_path)
+    resolved = compatibility or ParquetCompatibility()
+    if resolved.nanos_timestamp_columns:
+        # Spark 4 rejects Parquet TIMESTAMP(NANOS) during inference. Reading
+        # those physical values as longs and converting only footer-confirmed
+        # columns retains their timestamp meaning at Spark's microsecond
+        # precision without changing immutable Raw objects.
+        spark.conf.set("spark.sql.legacy.parquet.nanosAsLong", "true")
+
+    reader = spark.read
+    if resolved.schema is not None:
+        reader = reader.schema(resolved.schema)
+    dataframe = (
+        reader.parquet(input_path)
         .withColumn("_source_file", input_file_name())
+    )
+    for column_name in resolved.nanos_timestamp_columns:
+        escaped_column = column_name.replace("`", "``")
+        dataframe = dataframe.withColumn(
+            column_name,
+            F.timestamp_micros(
+                F.expr(f"`{escaped_column}` DIV 1000")
+            ),
+        )
+    for column_name in resolved.time_columns:
+        escaped_column = column_name.replace("`", "``")
+        dataframe = dataframe.withColumn(
+            column_name,
+            F.date_format(
+                F.timestamp_micros(F.expr(f"`{escaped_column}`")),
+                "HH:mm:ss.SSSSSS",
+            ),
+        )
+    return dataframe
+
+
+def _spark_field_from_parquet(field) -> StructField:
+    """Map a flat Parquet primitive field to its Spark read type."""
+
+    primitive = field.asPrimitiveType()
+    physical_type = str(primitive.getPrimitiveTypeName()).upper()
+    logical = primitive.getLogicalTypeAnnotation()
+    logical_name = str(logical).upper() if logical is not None else ""
+    nullable = str(field.getRepetition()).upper() != "REQUIRED"
+
+    if "STRING" in logical_name or "ENUM" in logical_name:
+        data_type = StringType()
+    elif "TIMESTAMP" in logical_name:
+        data_type = LongType() if "NANOS" in logical_name else TimestampType()
+    elif "TIME" in logical_name:
+        data_type = LongType()
+    elif "DATE" in logical_name:
+        data_type = DateType()
+    elif physical_type == "BOOLEAN":
+        data_type = BooleanType()
+    elif physical_type == "INT32":
+        data_type = IntegerType()
+    elif physical_type == "INT64":
+        data_type = LongType()
+    elif physical_type == "FLOAT":
+        data_type = FloatType()
+    elif physical_type == "DOUBLE":
+        data_type = DoubleType()
+    elif physical_type in {"BINARY", "FIXED_LEN_BYTE_ARRAY"}:
+        data_type = BinaryType()
+    elif physical_type == "INT96":
+        data_type = TimestampType()
+    else:
+        raise BronzeReadError(
+            f"Unsupported Parquet physical type for '{field.getName()}': "
+            f"{physical_type}."
+        )
+    return StructField(field.getName(), data_type, nullable)
+
+
+def get_parquet_compatibility(
+    spark: SparkSession,
+    batch: RawBatch,
+) -> ParquetCompatibility:
+    """Inspect Raw footers for unsupported Spark temporal logical types."""
+
+    hadoop_configuration = (
+        spark.sparkContext._jsc.hadoopConfiguration()
+    )
+    jvm = spark.sparkContext._jvm
+    schemas: list[tuple[tuple[str, str, str], ...]] = []
+    first_fields = None
+    try:
+        for key in batch.parquet_keys:
+            path = jvm.org.apache.hadoop.fs.Path(
+                f"s3a://{batch.bucket}/{key}"
+            )
+            input_file = (
+                jvm.org.apache.parquet.hadoop.util.HadoopInputFile.fromPath(
+                    path,
+                    hadoop_configuration,
+                )
+            )
+            parquet_reader = (
+                jvm.org.apache.parquet.hadoop.ParquetFileReader.open(input_file)
+            )
+            try:
+                fields = (
+                    parquet_reader.getFooter()
+                    .getFileMetaData()
+                    .getSchema()
+                    .getFields()
+                )
+                if first_fields is None:
+                    first_fields = list(fields)
+                schemas.append(
+                    tuple(
+                        (
+                            field.getName(),
+                            str(field.asPrimitiveType().getPrimitiveTypeName()),
+                            str(field.getLogicalTypeAnnotation()),
+                        )
+                        for field in fields
+                    )
+                )
+            finally:
+                parquet_reader.close()
+    except Exception as error:
+        raise BronzeReadError(
+            "Unable to inspect Raw Parquet timestamp metadata for "
+            f"table '{batch.table_name}'."
+        ) from error
+
+    if schemas and any(schema != schemas[0] for schema in schemas[1:]):
+        raise BronzeReadError(
+            "Raw Parquet parts disagree on their physical schema for "
+            f"table '{batch.table_name}'."
+        )
+
+    fields = first_fields or []
+    nanos_columns = tuple(
+        field.getName()
+        for field in fields
+        if "TIMESTAMP" in str(field.getLogicalTypeAnnotation()).upper()
+        and "NANOS" in str(field.getLogicalTypeAnnotation()).upper()
+    )
+    time_columns = tuple(
+        field.getName()
+        for field in fields
+        if "TIME" in str(field.getLogicalTypeAnnotation()).upper()
+        and "TIMESTAMP" not in str(field.getLogicalTypeAnnotation()).upper()
+    )
+    schema = (
+        StructType([_spark_field_from_parquet(field) for field in fields])
+        if time_columns
+        else None
+    )
+    return ParquetCompatibility(
+        schema=schema,
+        nanos_timestamp_columns=tuple(sorted(nanos_columns)),
+        time_columns=tuple(sorted(time_columns)),
     )
 
 
@@ -321,7 +497,24 @@ def read_raw_batch(spark: SparkSession, batch: RawBatch) -> DataFrame:
         f"table={batch.table_name} | path={batch.s3a_batch_path}"
     )
     try:
-        return read_parquet_with_lineage(spark, batch.s3a_batch_path)
+        compatibility = get_parquet_compatibility(spark, batch)
+        if compatibility.nanos_timestamp_columns:
+            logger.info(
+                "Applying Raw TIMESTAMP(NANOS) compatibility | "
+                f"table={batch.table_name} | "
+                f"columns={list(compatibility.nanos_timestamp_columns)}"
+            )
+        if compatibility.time_columns:
+            logger.info(
+                "Applying Raw TIME compatibility | "
+                f"table={batch.table_name} | "
+                f"columns={list(compatibility.time_columns)}"
+            )
+        return read_parquet_with_lineage(
+            spark,
+            batch.s3a_batch_path,
+            compatibility,
+        )
     except Exception as error:
         raise BronzeReadError(
             "Spark failed to read Raw Parquet data for "

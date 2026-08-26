@@ -90,6 +90,7 @@ complete suite because it includes real source-file lineage and duplicate-safe
 physical Parquet publication.
 
 One explicitly authorised live S3 Raw-to-Bronze integration has been completed
-for `business_units`. Further datasets remain deferred. Manual Amazon EMR
+for all 17 supported datasets in the shared verified batch. Manual Amazon EMR
 execution is the next separate milestone and requires authorised cloud
-configuration.
+configuration. See `docs/operations/end-to-end-runbook.md` for the complete
+operational sequence and resume command.

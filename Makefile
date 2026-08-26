@@ -9,6 +9,7 @@
 	db-create db-seed \
 	simulate simulate-full validate \
 	extract validate-raw upload-s3 raw-pipeline full-refresh \
+	bronze-test bronze-all bronze-verify \
 	docker-up docker-down docker-logs
 
 
@@ -44,6 +45,9 @@ help:
 	@echo "  make validate-raw"
 	@echo "  make upload-s3"
 	@echo "  make raw-pipeline"
+	@echo "  make bronze-test"
+	@echo "  make bronze-all BATCH_ID=<validated-batch-id>"
+	@echo "  make bronze-verify BATCH_ID=<validated-batch-id>"
 	@echo ""
 	@echo "Platform"
 	@echo "  make full-refresh"
@@ -149,6 +153,20 @@ upload-s3:
 
 raw-pipeline:
 	python main.py raw-pipeline
+
+
+###############################################################################
+# Bronze
+###############################################################################
+
+bronze-test:
+	docker compose run --rm --build spark-tests
+
+bronze-all:
+	docker compose run --rm spark-bronze --all-tables --batch-id $(BATCH_ID)
+
+bronze-verify:
+	docker compose run --rm spark-bronze --all-tables --batch-id $(BATCH_ID) --verify-existing
 
 
 ###############################################################################

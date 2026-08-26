@@ -58,6 +58,11 @@ class BronzeValidationTests(SparkTestCase):
         with self.assertRaisesRegex(BronzeValidationError, "SHA-256"):
             validate_bronze(self.raw, invalid, self.batch)
 
+    def test_well_formed_but_incorrect_hash_fails(self) -> None:
+        invalid = self.bronze.withColumn("_record_hash", F.lit("0" * 64))
+        with self.assertRaisesRegex(BronzeValidationError, "inconsistent"):
+            validate_bronze(self.raw, invalid, self.batch)
+
     def test_lineage_mismatch_fails(self) -> None:
         invalid = self.bronze.withColumn("_batch_id", F.lit("wrong-batch"))
         with self.assertRaisesRegex(BronzeValidationError, "_batch_id"):

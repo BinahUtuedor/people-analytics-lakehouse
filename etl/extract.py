@@ -42,6 +42,7 @@ import pandas as pd
 from sqlalchemy import inspect
 from sqlalchemy.exc import SQLAlchemyError
 
+from config.datasets import SUPPORTED_DATASETS
 from config.logger import logger
 from database.connection import engine
 
@@ -70,25 +71,8 @@ MANIFEST_DIRECTORY = (
 PARQUET_COMPRESSION = "snappy"
 
 
-EXTRACT_TABLES: tuple[str, ...] = (
-    "business_units",
-    "departments",
-    "locations",
-    "job_roles",
-    "employees",
-    "employee_exits",
-    "attendance",
-    "payroll",
-    "leave_requests",
-    "recruitment",
-    "promotions",
-    "transfers",
-    "training",
-    "performance_reviews",
-    "employee_surveys",
-    "manager_feedback",
-    "exit_interviews",
-)
+# Backward-compatible name retained for existing extraction callers.
+EXTRACT_TABLES = SUPPORTED_DATASETS
 
 
 # ---------------------------------------------------------------------------

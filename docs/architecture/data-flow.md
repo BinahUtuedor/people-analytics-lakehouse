@@ -6,10 +6,10 @@ The **People Analytics Lakehouse Platform** is an end-to-end data
 engineering and analytics platform for generating, validating,
 ingesting, transforming, governing and sharing synthetic workforce data.
 
-The implemented platform supports the operational-to-Raw pipeline and one
-controlled live S3 Raw-to-Bronze `business_units` batch. The next phase runs
-the same Spark workload manually on **Amazon EMR**, using Amazon S3 for Raw,
-Bronze, Silver and Gold storage.
+The implemented platform supports the operational-to-Raw pipeline and a full
+17-dataset S3 Raw-to-Bronze batch. The next phase runs the same Spark workload
+manually on **Amazon EMR**, using Amazon S3 for Raw, Bronze, Silver and Gold
+storage.
 
 The target architecture supports both **event-driven processing** and
 scheduled workflows.
@@ -575,7 +575,7 @@ Approved Consumer
   Amazon S3 Raw upload                       Implemented
   Root platform CLI                          Implemented
   Local PySpark foundation                   Implemented; Linux Docker suite verified
-  Bronze processing                          Implemented; live S3 `business_units` batch verified
+  Bronze processing                          Implemented; full 17-dataset S3 batch verified
   Amazon EMR execution                       Planned next
   S3 → Lambda → EMR event trigger            Planned
   Silver PySpark / Spark SQL                 Planned

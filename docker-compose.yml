@@ -34,6 +34,43 @@ services:
       - -v
 
   ##########################################################################
+  # Linux Spark live Bronze runner - explicit invocation only
+  ##########################################################################
+
+  spark-bronze:
+
+    build:
+      context: .
+      dockerfile: docker/spark-tests/Dockerfile
+
+    working_dir: /workspace
+
+    environment:
+      PYTHONPATH: /workspace
+      PYSPARK_PYTHON: /usr/local/bin/python
+      PYSPARK_DRIVER_PYTHON: /usr/local/bin/python
+      SPARK_LOCAL_IP: 127.0.0.1
+      SPARK_JARS_PACKAGES: org.apache.hadoop:hadoop-aws:3.5.0
+      SPARK_MASTER: local[*]
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_S3_RAW_PREFIX: ${AWS_S3_RAW_PREFIX:-raw/postgresql}
+      AWS_S3_BRONZE_PREFIX: ${AWS_S3_BRONZE_PREFIX:-bronze}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+
+    volumes:
+      - .:/workspace
+
+    entrypoint:
+      - python
+      - spark/bronze/job.py
+
+    command:
+      - --help
+
+  ##########################################################################
   # PostgreSQL - Operational Database
   ##########################################################################
 

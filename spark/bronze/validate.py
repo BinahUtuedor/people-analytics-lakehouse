@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from spark.bronze.reader import RawBatch
+from spark.bronze.transform import build_record_hash
 
 
 RAW_LINEAGE_COLUMNS = {
@@ -139,6 +140,14 @@ def validate_bronze(
         invalid_hash = ~F.col("_record_hash").rlike("^[0-9a-f]{64}$")
         if _has_invalid_rows(bronze_dataframe, invalid_hash):
             errors.append("_record_hash contains invalid SHA-256 values.")
+
+        unexpected_hash = F.col("_record_hash") != build_record_hash(
+            bronze_dataframe
+        )
+        if _has_invalid_rows(bronze_dataframe, unexpected_hash):
+            errors.append(
+                "_record_hash is inconsistent with source business values."
+            )
 
         empty_source_file = F.length(F.trim(F.col("_source_file"))) == 0
         if _has_invalid_rows(bronze_dataframe, empty_source_file):

@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 from spark.bronze.writer import (
     BronzeWriteError,
+    bronze_output_exists,
     build_bronze_output_path,
     write_bronze,
 )
@@ -17,6 +18,19 @@ from tests.spark.bronze.test_transform import make_batch
 
 
 class BronzeWriterContractTests(TestCase):
+    def test_checks_output_existence_with_its_hadoop_filesystem(self) -> None:
+        spark = MagicMock()
+        hadoop_path = (
+            spark.sparkContext._jvm.org.apache.hadoop.fs.Path.return_value
+        )
+        hadoop_path.getFileSystem.return_value.exists.return_value = True
+
+        self.assertTrue(bronze_output_exists(spark, "s3a://bucket/bronze/"))
+
+        hadoop_path.getFileSystem.return_value.exists.assert_called_once_with(
+            hadoop_path
+        )
+
     def test_builds_batch_specific_s3a_path(self) -> None:
         path = build_bronze_output_path(
             make_batch(),

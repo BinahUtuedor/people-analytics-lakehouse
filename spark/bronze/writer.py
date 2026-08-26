@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 from config.logger import logger
 from config.settings import settings
@@ -11,6 +11,24 @@ from spark.bronze.reader import RawBatch, normalise_prefix
 
 class BronzeWriteError(RuntimeError):
     """Raised when a Bronze batch cannot be published safely."""
+
+
+def bronze_output_exists(spark: SparkSession, output_path: str) -> bool:
+    """Return whether a batch-specific Bronze output path already exists."""
+
+    try:
+        hadoop_path = spark.sparkContext._jvm.org.apache.hadoop.fs.Path(
+            output_path
+        )
+        hadoop_configuration = (
+            spark.sparkContext._jsc.hadoopConfiguration()
+        )
+        filesystem = hadoop_path.getFileSystem(hadoop_configuration)
+        return bool(filesystem.exists(hadoop_path))
+    except Exception as error:
+        raise BronzeWriteError(
+            f"Unable to inspect Bronze output path: {output_path}"
+        ) from error
 
 
 def build_bronze_output_path(
