@@ -22,3 +22,13 @@ SUPPORTED_DATASETS: tuple[str, ...] = (
     "manager_feedback",
     "exit_interviews",
 )
+
+SILVER_REFERENCE_DATASETS: tuple[str, ...] = (
+    "business_units", "departments", "locations", "job_roles", "employees",
+)
+
+# Silver processes reference entities before lifecycle datasets so that
+# in-batch referential validation has stable parent inputs.
+SILVER_REFERENCE_DATASETS: tuple[str, ...] = (
+    "business_units", "departments", "locations", "job_roles", "employees",
+)

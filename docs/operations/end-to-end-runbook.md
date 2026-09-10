@@ -182,6 +182,15 @@ Governed YAML → PostgreSQL → Validation → Raw Parquet → S3 Raw → S3 Br
 
 The repository now includes non-live EMR packaging and a Spark 3.5.6
 compatibility gate. Follow `docs/operations/emr-manual-runbook.md` to build and
-review the artifacts and runtime requirements. Manual EMR execution still
-requires separate explicit approval. Do not add Lambda orchestration before
-that manual EMR run succeeds.
+review the artifacts and runtime requirements. AWS preflight discovery is also
+complete, but its live AWS inspection was blocked because the AWS CLI is not
+available in the discovery environment; see
+`docs/operations/emr-preflight-report.md`. Manual EMR execution still requires
+separate explicit approval. Do not add Lambda orchestration before that manual
+EMR run succeeds.
+
+## 13. Silver Layer
+
+Silver is implemented as a separate Bronze-only Spark application. See
+`docs/operations/silver-runbook.md`. It is not included in `full-refresh` and
+must be run with an explicit batch ID; EMR execution remains deferred.

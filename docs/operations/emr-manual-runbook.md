@@ -25,6 +25,28 @@ release availability in the intended AWS Region immediately before a live run.
 The local compatibility container uses upstream PySpark 3.5.6; it is a strong
 preflight check but cannot reproduce Amazon's patched runtime exactly.
 
+## AWS Preflight Discovery
+
+Read-only preflight discovery was completed on 2026-09-10. The repository is
+configured for `eu-west-2`, bucket `people-analytics-lakehouse`, Raw prefix
+`raw/postgresql`, and Bronze prefix `bronze`. The AWS CLI was not installed or
+discoverable in the execution environment, so AWS identity, live S3 layout,
+bucket configuration, networking, IAM, KMS, EMR resources, and regional EMR
+release availability could not be inspected. No AWS API request succeeded.
+
+This is an access-tooling prerequisite, not evidence that the corresponding
+AWS resources are absent. See `docs/operations/emr-preflight-report.md` for
+the read-only command record, permission matrix, gap analysis, and next step.
+
+Current state:
+
+```text
+EMR repository preparation: COMPLETE
+AWS preflight discovery: COMPLETE (repository-only; AWS CLI prerequisite blocked live discovery)
+EMR infrastructure creation: NOT STARTED
+EMR execution: NOT STARTED
+```
+
 ## 1. Local Non-Live Validation
 
 ```powershell

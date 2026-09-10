@@ -123,11 +123,12 @@ The project is being developed incrementally so that each architectural layer is
 - Deterministic EMR application packaging with pinned Python dependencies
 - Local Python 3.11 / Java 17 / Spark 3.5.6 EMR compatibility gate
 - Documented EMR IAM, S3, networking, logging and runtime requirements
+- AWS EMR read-only preflight discovery report (AWS CLI prerequisite identified)
+- PySpark Silver package for typed, conformed Bronze-derived datasets
 
 ## Next Implementation
 
-- Obtain explicit approval and run the packaged multi-table Bronze workload
-  manually on Amazon EMR
+- Validate the new Silver application against an explicitly approved Bronze batch
 
 ## Planned
 
