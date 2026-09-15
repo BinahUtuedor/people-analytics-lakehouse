@@ -13,8 +13,10 @@ Hadoop local filesystem requires Windows-native support for these physical
 writes. The project deliberately does not distribute unofficial `winutils.exe`
 binaries.
 
-Amazon EMR execution, Lambda orchestration, Silver and Gold processing remain
-planned or deferred.
+Silver processing is implemented as a separate Bronze-only Spark application;
+see [Silver runbook](../operations/silver-runbook.md). Amazon EMR execution and
+Lambda orchestration remain deferred. Gold is planned / design approved; see
+[Gold contract](../architecture/gold-layer.md).
 
 ## Processing Flow
 
@@ -184,5 +186,5 @@ was uploaded successfully. Native Windows `spark-submit` remains unsuitable for
 this physical integration because the project does not distribute
 `winutils.exe`.
 
-See `docs/operations/end-to-end-runbook.md` for the complete clone-to-Bronze
+See `docs/operations/end-to-end-runbook.md` for the operational-to-Silver
 workflow.

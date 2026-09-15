@@ -4,8 +4,8 @@
 
 This runbook describes the currently implemented workflow from a fresh clone
 through PostgreSQL simulation, validated Raw publication, and multi-table
-Amazon S3 Bronze processing. Amazon EMR, Lambda, Silver, and Gold remain outside
-the implemented boundary.
+Amazon S3 Bronze and Spark Silver processing. Amazon EMR execution and Lambda
+remain deferred. Gold is planned / design approved, with no runnable commands.
 
 Commands are shown for PowerShell from the repository root. Cloud-mutating
 steps require an authorised development bucket and AWS identity.
@@ -31,7 +31,7 @@ py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-Copy-Item env.example .env
+Copy-Item .env.example .env
 ```
 
 Populate `.env` locally. At minimum, configure PostgreSQL, `AWS_REGION`,
@@ -141,7 +141,7 @@ fc4e3604-70f2-43f8-96ff-419e9d3046e5
 
 It contains 17 datasets and reconciles 885,037 Raw rows to 885,037 Bronze rows.
 
-## 9. Expected S3 Layout
+## 9. Expected Raw/Bronze S3 Layout
 
 ```text
 s3://<bucket>/
@@ -152,6 +152,8 @@ s3://<bucket>/
 ```
 
 Each successful Bronze batch path contains Parquet output and `_SUCCESS`.
+See the [Silver runbook](silver-runbook.md) for the separate implemented Silver
+layout and explicit-batch execution.
 
 ## 10. Failure and Recovery
 
@@ -174,10 +176,11 @@ Omit `-v` unless intentionally deleting PostgreSQL and pgAdmin volumes.
 
 ## 12. Current Boundary and Next Step
 
-The implemented and verified boundary is:
+The implemented boundary is (Silver implementation and validation milestone:
+commit `7caa41f`; this documentation task does not rerun live validation):
 
 ```text
-Governed YAML → PostgreSQL → Validation → Raw Parquet → S3 Raw → S3 Bronze
+Governed YAML -> PostgreSQL -> Validation -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver
 ```
 
 The repository now includes non-live EMR packaging and a Spark 3.5.6
@@ -194,3 +197,7 @@ EMR run succeeds.
 Silver is implemented as a separate Bronze-only Spark application. See
 `docs/operations/silver-runbook.md`. It is not included in `full-refresh` and
 must be run with an explicit batch ID; EMR execution remains deferred.
+
+Gold design is recorded in [the architecture contract](../architecture/gold-layer.md)
+and [phased plan](../plans/gold-implementation-plan.md). A Gold runbook will be
+created only when runnable commands exist.

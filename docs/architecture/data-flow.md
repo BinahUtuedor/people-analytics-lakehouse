@@ -6,10 +6,9 @@ The **People Analytics Lakehouse Platform** is an end-to-end data
 engineering and analytics platform for generating, validating,
 ingesting, transforming, governing and sharing synthetic workforce data.
 
-The implemented platform supports the operational-to-Raw pipeline and a full
-17-dataset S3 Raw-to-Bronze batch. The next phase runs the same Spark workload
-manually on **Amazon EMR**, using Amazon S3 for Raw, Bronze, Silver and Gold
-storage.
+The implemented flow is `PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver`.
+Commit `7caa41f` implements Silver. Manual Amazon EMR execution remains deferred;
+Gold is planned / design approved and awaits separate implementation approval.
 
 The target architecture supports both **event-driven processing** and
 scheduled workflows.
@@ -52,6 +51,10 @@ Raw Extraction Validation
         │
         ▼
 Amazon S3 Raw
+        |
+Spark Bronze
+        |
+Spark Silver
 ```
 
 Implemented CLI workflows include:
@@ -137,9 +140,8 @@ python main.py full-refresh
 ```
 
 The S3 event → Lambda → EMR path is the target event-driven
-implementation. The immediate next step is to complete the local Bronze
-Spark foundation and then run the same portable Spark workload on Amazon
-EMR.
+implementation. Local Bronze and Silver are implemented; manual EMR execution
+requires separate approval. Gold implementation follows its phased plan.
 
 ------------------------------------------------------------------------
 
@@ -357,14 +359,15 @@ Responsibilities are separated by layer:
 -   **Silver** --- cleansed, standardised and integrated entities;
 -   **Gold** --- business-ready analytical data products.
 
-Initial Bronze, Silver and Gold storage uses Parquet on S3.
+Bronze and Silver use Parquet on S3. Gold Parquet storage is design approved
+and has not been implemented.
 
 ------------------------------------------------------------------------
 
 # 10. Bronze Flow
 
 Bronze processing and its local Linux Docker integration-test runtime are
-implemented. Live S3 execution remains the next verification milestone.
+implemented. The full 17-dataset S3 Bronze batch has been verified.
 
 ``` text
 S3 Raw Parquet
@@ -401,36 +404,19 @@ transformations.
 
 # 11. Silver Flow
 
-Silver will use PySpark and Spark SQL to create trusted analytical
-entities.
+Silver is implemented in `spark/silver/`: string cleanup, analytical type casts, exact-hash deduplication, batch/lineage validation, employee-reference checks in batch processing, and duplicate-safe Parquet publication. It remains source-conformed; assignment reconstruction and dimensional modelling belong to planned Gold.
+See [Silver runbook](../operations/silver-runbook.md).
 
-``` text
-S3 Bronze
-    │
-    ▼
-PySpark + Spark SQL
-    │
-    ▼
-S3 Silver
+```text
+S3 Bronze -> Spark Silver -> S3 Silver
 ```
-
-Responsibilities include:
-
--   explicit schema enforcement;
--   data-type standardisation;
--   null handling;
--   deduplication;
--   reference-data conformity;
--   validated joins;
--   business-rule enforcement;
--   date and key standardisation;
--   reusable analytical entities.
 
 ------------------------------------------------------------------------
 
 # 12. Gold Data Products
 
-Gold is organised around analytical domains.
+Gold is planned / design approved. See [Gold contract](gold-layer.md).
+The following domains include post-MVP products.
 
 ``` text
 Gold
@@ -445,8 +431,10 @@ Gold
 Gold products provide governed datasets for Power BI, advanced
 analytics, machine learning and approved API consumers.
 
-dbt will be introduced where SQL-based analytical modelling, tests,
-documentation and reusable reporting models add value.
+Spark Gold will publish reusable dimensions, history, snapshots and facts.
+Future dbt will consume Gold for reporting marts, semantic presentation,
+lightweight aggregations, BI-facing views and approved KPI models.
+The serving engine remains undecided; do not duplicate Spark transformations.
 
 ------------------------------------------------------------------------
 
@@ -578,8 +566,8 @@ Approved Consumer
   Bronze processing                          Implemented; full 17-dataset S3 batch verified
   Amazon EMR execution                       Planned next
   S3 → Lambda → EMR event trigger            Planned
-  Silver PySpark / Spark SQL                 Planned
-  Gold domain data products                  Planned
+  Silver PySpark / Spark SQL                 Implemented (Spark application)
+  Gold domain data products                  Planned / design approved
   dbt analytical modelling                   Planned
   Metadata catalogue / lineage publication   Planned
   Power BI                                   Planned
@@ -592,8 +580,8 @@ Approved Consumer
 
 # Summary
 
-The platform currently has a working operational-to-Raw pipeline. The
-next phase extends it without replacing the existing foundation:
+The implemented flow runs through Spark Silver. Gold is planned / design
+approved, and governed consumption remains future work:
 
 ``` text
 PostgreSQL

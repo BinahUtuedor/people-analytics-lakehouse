@@ -15,6 +15,12 @@ PySpark, Spark SQL, dbt and Power BI**.
 
 # Repository Layout
 
+This tree combines existing and planned components; it is not a filesystem inventory.
+Implemented: `PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver`.
+Gold is planned / design approved; [Gold contract](gold-layer.md) is authoritative.
+`spark/gold/` contains Phase 0 contracts only. No Gold transformations, dbt
+implementation or Gold commands exist.
+
 ``` text
 people-analytics-lakehouse-platform/
 │
@@ -305,7 +311,7 @@ Responsibilities include:
 -   duplicate and integrity checks;
 -   lifecycle reconciliation;
 -   Raw validation;
--   future Bronze and Silver validation.
+-   implemented Bronze and Silver validation in `spark/`.
 
 ------------------------------------------------------------------------
 
@@ -329,7 +335,8 @@ Amazon S3
 
 ## `spark/`
 
-Owns distributed Bronze and Silver processing.
+Owns implemented Bronze/Silver processing and planned Gold dimensions, assignment
+history, snapshots, reusable facts, heavy joins, deterministic derivations and Parquet.
 
 Spark code should be portable between local development and Amazon EMR.
 
@@ -349,7 +356,9 @@ validation where practical.
 
 ## `dbt/`
 
-Contains SQL-based analytical models for selected Gold outputs.
+Planned: reporting marts, semantic presentation, lightweight aggregations,
+BI-facing views and approved KPI presentation over Spark Gold. Do not duplicate
+Spark transformations. The SQL serving engine remains undecided.
 
 Gold is organised by analytical domain:
 
@@ -523,7 +532,7 @@ Python 3.11, Java 17 and Spark 3.5.6 compatibility gate for the initial EMR
 7.13 target. Neither component provisions infrastructure or submits a cloud
 job.
 
-The next verification work should focus on:
+Cloud compatibility preparation remains available in:
 
 ``` text
 spark/bronze/
@@ -539,17 +548,17 @@ pipeline and root CLI remain separate and unchanged.
 
 ------------------------------------------------------------------------
 
-# Planned Implementation Sequence
+# Implementation Sequence and Status
 
 ``` text
-1. Complete local Bronze PySpark processing
-2. Add Bronze validation and reconciliation
-3. Make Spark entry points portable with spark-submit
+1. Local Bronze PySpark processing complete
+2. Bronze validation and reconciliation complete
+3. Portable Bronze entry point complete
 4. Run Bronze manually on Amazon EMR
 5. Add Terraform for S3 / IAM / EMR
 6. Add S3 event → Lambda → EMR orchestration
-7. Implement Silver with PySpark and Spark SQL
-8. Create Gold domain data products
+7. Silver implemented in commit 7caa41f
+8. Gold design approved; implement only after phased approval
 9. Add dbt analytical models and tests
 10. Add metadata and lineage publication
 11. Add Power BI
@@ -557,8 +566,9 @@ pipeline and root CLI remain separate and unchanged.
 13. Add advanced analytics / ML
 ```
 
-This order keeps infrastructure and orchestration behind proven
-transformation logic.
+The original sequence now includes completed local Silver work. Cloud execution
+and orchestration remain deferred; use the Gold phased plan for the next local
+implementation review.
 
 ------------------------------------------------------------------------
 
@@ -571,10 +581,10 @@ Python / SQLAlchemy    Operational simulation
 PostgreSQL             Operational persistence
 Python ETL             Extraction and Raw movement
 Amazon S3              Durable analytical storage
-PySpark / Spark SQL    Bronze and Silver engineering
+PySpark / Spark SQL    Bronze/Silver and planned reusable Gold engineering
 Amazon EMR             Managed Spark execution
 AWS Lambda             Event-trigger control plane
-dbt                    Gold analytical modelling
+dbt                    Future reporting marts and KPI presentation
 Power BI               Business intelligence
 FastAPI                Governed delivery
 Terraform              Infrastructure provisioning
@@ -614,15 +624,12 @@ The repository structure supports a staged evolution from the already
 working operational-to-Raw platform into an AWS-based distributed data
 platform.
 
-The immediate engineering focus is:
+The implemented processing boundary is:
 
-``` text
-S3 Raw
-   ↓
-Portable PySpark Bronze
-   ↓
-Amazon EMR
+```text
+PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver
 ```
 
-followed by event-driven orchestration, Silver processing and
-domain-oriented Gold data products.
+Gold is planned / design approved. Phase 0 contracts are implemented; review them before Phase 1 approval and follow
+[the phased plan](../plans/gold-implementation-plan.md). Cloud execution and
+event-driven orchestration remain separately approval-gated.

@@ -20,7 +20,7 @@ The platform is built around:
 -   Apache Spark, PySpark and Spark SQL for distributed processing;
 -   Amazon EMR as the managed Spark execution environment;
 -   Amazon S3 events and AWS Lambda for event-driven processing;
--   dbt for selected Gold analytical models and tests;
+-   future dbt for reporting marts and approved KPI presentation over Spark Gold;
 -   Power BI for business intelligence;
 -   FastAPI for governed data-product delivery;
 -   Terraform for AWS infrastructure provisioning;
@@ -165,7 +165,7 @@ Current operational checks include:
 -   employment-date validation;
 -   reference-data validation.
 
-Future Bronze, Silver and Gold controls extend validation across the
+Implemented Bronze/Silver gates and planned Gold controls extend validation across the
 analytical layers.
 
 ------------------------------------------------------------------------
@@ -222,27 +222,19 @@ Bronze preserves source business values and adds technical lineage.
 
 # 6. Silver Layer
 
-Silver creates trusted analytical entities.
+Silver is implemented in `spark/silver/`: string cleanup, analytical type casts, exact-hash deduplication, batch/lineage validation, employee-reference checks in batch processing, and duplicate-safe Parquet publication. It remains source-conformed; assignment reconstruction and dimensional modelling belong to planned Gold.
+See [Silver runbook](../operations/silver-runbook.md).
 
-Processing uses both PySpark DataFrame APIs and Spark SQL.
-
-Responsibilities include:
-
--   schema enforcement;
--   type standardisation;
--   deduplication;
--   null handling;
--   reference-data conformity;
--   validated joins;
--   business rules;
--   effective-date logic;
--   integrated workforce entities.
+```text
+S3 Bronze -> Spark Silver -> S3 Silver
+```
 
 ------------------------------------------------------------------------
 
 # 7. Gold Layer
 
-Gold is explicitly data-product oriented.
+Gold is planned / design approved. See [Gold contract](gold-layer.md),
+[decisions](gold-decisions.md) and [implementation plan](../plans/gold-implementation-plan.md).
 
 ``` text
 Gold
@@ -257,8 +249,10 @@ Gold
 Gold provides business-ready datasets for reporting, analytical
 applications and governed sharing.
 
-dbt can be used to manage SQL-based Gold models, dependencies, tests,
-documentation and reusable metrics.
+Spark Gold owns dimensions, assignment history, snapshots, reusable facts,
+heavy joins, deterministic derivations and Parquet. Future dbt owns reporting
+marts, semantic presentation, lightweight aggregations, BI-facing views and
+approved KPI presentation; transformations must not be duplicated.
 
 ------------------------------------------------------------------------
 
@@ -367,8 +361,9 @@ dbt Models / Tests
 Reporting Models
 ```
 
-dbt is used where declarative SQL modelling provides clear value; it
-does not replace PySpark processing.
+dbt is future work for reporting/semantic marts over Spark Gold; no dbt
+implementation or serving connection exists yet. It does not replace or
+duplicate Spark transformations.
 
 ------------------------------------------------------------------------
 
@@ -565,8 +560,8 @@ This provides defence in depth.
   Bronze                           Implemented; full 17-dataset S3 batch verified
   Amazon EMR                       Planned next
   Event-driven S3 → Lambda → EMR   Planned
-  Silver                           Planned
-  Gold data products               Planned
+  Silver                           Implemented (Spark application)
+  Gold data products               Planned / design approved
   dbt                              Planned
   Metadata / lineage               Planned
   Power BI                         Planned

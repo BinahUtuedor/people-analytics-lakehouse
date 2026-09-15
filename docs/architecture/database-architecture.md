@@ -16,7 +16,7 @@ The target analytical architecture uses:
 -   Amazon S3 for Raw, Bronze, Silver and Gold storage;
 -   Apache Spark / PySpark on Amazon EMR for distributed processing;
 -   Spark SQL for analytical transformations;
--   dbt for selected Gold analytical models and tests;
+-   future dbt for reporting marts and approved KPI presentation over Spark Gold;
 -   Power BI for business intelligence;
 -   FastAPI for governed data-product delivery.
 
@@ -251,7 +251,12 @@ across local development and Amazon EMR.
 
 # 9. Gold Data-Product Structure
 
-Gold is organised by analytical domain.
+Gold is planned / design approved; [Gold contract](gold-layer.md) is authoritative.
+Spark Gold owns reusable dimensions, history, snapshots, facts and Parquet.
+Future dbt owns reporting presentation and lightweight aggregations, without
+duplicating Spark logic. The serving engine remains undecided.
+
+The target domains include post-MVP products.
 
 ``` text
 gold/
@@ -350,7 +355,7 @@ Amazon EMR
     Managed Spark execution
 
 dbt
-    Selected Gold analytical modelling
+    Reporting marts and approved KPI presentation
 
 Governance Schemas
     Metadata and sharing policy
@@ -376,9 +381,9 @@ PostgreSQL      Operational source system
 Quality         Validation and quality gates
 ETL             Extraction and movement
 Amazon S3       Durable analytical storage
-PySpark / EMR   Bronze and Silver engineering
+PySpark / EMR   Bronze/Silver engineering and planned Spark Gold
 Spark SQL       SQL-based distributed transformations
-dbt             Gold analytical modelling and tests
+dbt             Future Gold reporting marts and presentation tests
 FastAPI         Governed data delivery
 ```
 
