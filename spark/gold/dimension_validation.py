@@ -177,8 +177,11 @@ def enforce_schema(frame: DataFrame, model: str) -> DataFrame:
     missing data is filled or repaired. Nullable branches retain the contract's
     unknown-member exceptions even when the current fixture has no nulls.
     """
-    if model not in CORE_DIMENSIONS:
-        raise ValueError("Not a Phase 1 model")
+    if model not in CORE_DIMENSIONS + (
+        "dim_employee_assignment",
+        "fact_employee_movement",
+    ):
+        raise ValueError("Not an implemented Gold model")
     schema = get_gold_schema(model)
     if frame.columns != schema.fieldNames() or any(
         frame.schema[f.name].dataType != f.dataType for f in schema

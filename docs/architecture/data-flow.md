@@ -8,7 +8,8 @@ ingesting, transforming, governing and sharing synthetic workforce data.
 
 The implemented flow is `PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver`.
 Commit `7caa41f` implements Silver. Manual Amazon EMR execution remains deferred;
-Gold is planned / design approved and awaits separate implementation approval.
+Gold Phase 2 complete locally; Phase 3 has not started. Gold production
+publication and later models remain planned.
 
 The target architecture supports both **event-driven processing** and
 scheduled workflows.
@@ -404,7 +405,7 @@ transformations.
 
 # 11. Silver Flow
 
-Silver is implemented in `spark/silver/`: string cleanup, analytical type casts, exact-hash deduplication, batch/lineage validation, employee-reference checks in batch processing, and duplicate-safe Parquet publication. It remains source-conformed; assignment reconstruction and dimensional modelling belong to planned Gold.
+Silver is implemented in `spark/silver/`: string cleanup, analytical type casts, exact-hash deduplication, batch/lineage validation, employee-reference checks in batch processing, and duplicate-safe Parquet publication. It remains source-conformed; assignment reconstruction and dimensional modelling belong to Gold, whose Phase 2 local proof is complete.
 See [Silver runbook](../operations/silver-runbook.md).
 
 ```text
@@ -415,7 +416,8 @@ S3 Bronze -> Spark Silver -> S3 Silver
 
 # 12. Gold Data Products
 
-Gold is planned / design approved. See [Gold contract](gold-layer.md).
+Gold Phase 2 complete locally; Phase 3 has not started. Production releases
+remain planned. See [Gold contract](gold-layer.md).
 The following domains include post-MVP products.
 
 ``` text
@@ -580,8 +582,8 @@ Approved Consumer
 
 # Summary
 
-The implemented flow runs through Spark Silver. Gold is planned / design
-approved, and governed consumption remains future work:
+The operational flow runs through Spark Silver. Gold Phase 2 has completed
+local proof; production Gold publication and governed consumption remain future work:
 
 ``` text
 PostgreSQL

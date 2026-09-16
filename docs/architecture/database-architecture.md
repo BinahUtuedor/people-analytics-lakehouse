@@ -251,7 +251,8 @@ across local development and Amazon EMR.
 
 # 9. Gold Data-Product Structure
 
-Gold is planned / design approved; [Gold contract](gold-layer.md) is authoritative.
+Gold Phase 2 complete locally; Phase 3 has not started. Production releases
+remain planned; [Gold contract](gold-layer.md) is authoritative.
 Spark Gold owns reusable dimensions, history, snapshots, facts and Parquet.
 Future dbt owns reporting presentation and lightweight aggregations, without
 duplicating Spark logic. The serving engine remains undecided.

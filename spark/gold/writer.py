@@ -1,4 +1,4 @@
-﻿"""Local-only immutable dimension Parquet proof; no release publication or CLI."""
+﻿"""Local-only immutable Gold Parquet proof; no release publication or CLI."""
 
 from __future__ import annotations
 
@@ -16,11 +16,22 @@ from spark.gold.dimension_validation import (
 from spark.gold.manifest import ExistingOutputError
 from spark.gold.contracts import get_gold_schema
 from spark.gold.validate import ValidationReport
+from spark.gold.phase2 import PHASE2_MODELS, _ctx, validate_phase2_output
+
+
+def _context(build, model):
+    return _ctx(build, model) if model in PHASE2_MODELS else build.context(model)
+
+
+def _validate(frame, model, build, sources, *, dim_date=None):
+    if model in PHASE2_MODELS:
+        return validate_phase2_output(frame, model, build, sources)
+    return validate_core_dimension(frame, model, build, sources, dim_date=dim_date)
 
 
 def local_dimension_path(root: str | Path, model: str, build: DimensionBuild) -> Path:
     """Accept native local roots only; reject URI, UNC and glob input before IO."""
-    build.context(model)
+    _context(build, model)
     text = str(root)
     if (
         not text
@@ -56,7 +67,7 @@ def verify_local_dimension(
         raise ExistingOutputError(
             "Missing dimension output; verification cannot create it"
         )
-    validate_core_dimension(expected, model, build, sources, dim_date=dim_date)
+    _validate(expected, model, build, sources, dim_date=dim_date)
     actual = expected.sparkSession.read.option("mergeSchema", "true").parquet(str(path))
     schema = get_gold_schema(model)
     if actual.columns != schema.fieldNames() or any(
@@ -70,16 +81,16 @@ def verify_local_dimension(
 
     required = reduce(or_, (F.col(f.name).isNull() for f in schema if not f.nullable))
     _gate(
-        build.context(model),
+        _context(build, model),
         "physical_required_values",
         actual.filter(required).count(),
     )
     actual = enforce_schema(actual, model)
-    report = validate_core_dimension(actual, model, build, sources, dim_date=dim_date)
+    report = _validate(actual, model, build, sources, dim_date=dim_date)
     differences = (
         actual.exceptAll(expected).count() + expected.exceptAll(actual).count()
     )
-    equality = _gate(build.context(model), "physical_readback_equality", differences)
+    equality = _gate(_context(build, model), "physical_readback_equality", differences)
     return actual, ValidationReport(report.results + (equality,))
 
 
@@ -95,12 +106,12 @@ def write_local_dimension(
     """Validate, write with errorifexists, and verify; never append/delete/overwrite.
 
     A failed/partial directory remains for explicit operator resolution. This is
-    a local proof for one core dimension, not an accepted ten-model release.
+    a local proof for one implemented Gold model, not an accepted ten-model release.
     """
     path = local_dimension_path(root, model, build)
     if path.exists():
         raise ExistingOutputError("Gold dimension destination already exists")
-    validate_core_dimension(frame, model, build, sources, dim_date=dim_date)
+    _validate(frame, model, build, sources, dim_date=dim_date)
     try:
         frame.write.mode("errorifexists").option("compression", "snappy").parquet(
             str(path)

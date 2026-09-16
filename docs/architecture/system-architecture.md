@@ -233,7 +233,8 @@ S3 Bronze -> Spark Silver -> S3 Silver
 
 # 7. Gold Layer
 
-Gold is planned / design approved. See [Gold contract](gold-layer.md),
+Gold Phase 2 complete locally; Phase 3 has not started. Production releases
+remain planned. See [Gold contract](gold-layer.md),
 [decisions](gold-decisions.md) and [implementation plan](../plans/gold-implementation-plan.md).
 
 ``` text

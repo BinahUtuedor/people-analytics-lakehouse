@@ -17,9 +17,10 @@ PySpark, Spark SQL, dbt and Power BI**.
 
 This tree combines existing and planned components; it is not a filesystem inventory.
 Implemented: `PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver`.
-Gold is planned / design approved; [Gold contract](gold-layer.md) is authoritative.
-`spark/gold/` contains Phase 0 contracts only. No Gold transformations, dbt
-implementation or Gold commands exist.
+Gold Phase 2 complete; [Gold contract](gold-layer.md) is authoritative.
+`spark/gold/` contains Phase 0 contracts, Phase 1 core dimensions, Phase 2
+assignment/movement builders and local immutable writer proof. Phase 3 has not
+started. No dbt implementation, Gold job, CLI or production release exists.
 
 ``` text
 people-analytics-lakehouse-platform/
@@ -335,8 +336,9 @@ Amazon S3
 
 ## `spark/`
 
-Owns implemented Bronze/Silver processing and planned Gold dimensions, assignment
-history, snapshots, reusable facts, heavy joins, deterministic derivations and Parquet.
+Owns implemented Bronze/Silver processing and Gold Phase 1 dimensions and
+Phase 2 assignment/movement local proofs. Later Gold models and production
+publication remain planned.
 
 Spark code should be portable between local development and Amazon EMR.
 
@@ -558,7 +560,7 @@ pipeline and root CLI remain separate and unchanged.
 5. Add Terraform for S3 / IAM / EMR
 6. Add S3 event → Lambda → EMR orchestration
 7. Silver implemented in commit 7caa41f
-8. Gold design approved; implement only after phased approval
+8. Gold Phase 2 complete; Phase 3 has not started and needs separate approval
 9. Add dbt analytical models and tests
 10. Add metadata and lineage publication
 11. Add Power BI
@@ -630,6 +632,6 @@ The implemented processing boundary is:
 PostgreSQL -> Parquet Extraction -> S3 Raw -> Spark Bronze -> Spark Silver
 ```
 
-Gold is planned / design approved. Phase 0 contracts are implemented; review them before Phase 1 approval and follow
+Gold Phase 2 complete locally. Phase 3 has not started; review the validation evidence and follow
 [the phased plan](../plans/gold-implementation-plan.md). Cloud execution and
 event-driven orchestration remain separately approval-gated.

@@ -3,8 +3,9 @@
 ## Status and authority
 
 Gold data products are **design approved; no production release exists**. Phase 0
-is approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
-Phase 2 has not started.
+is complete and approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
+Phase 2 complete: assignment and movement contract tests and local physical proof pass.
+Phase 3 has not started.
 No Gold job or CLI exists. This document records
 the explicit approved decisions and is the authoritative repository Gold design
 entry point. [Gold decisions](gold-decisions.md) records their rationale;
@@ -714,8 +715,8 @@ entry point; test execution is documented in the implementation plan.
 
 ## Phase 1 core dimensions - local proof complete
 
-Only `dim_date`, `dim_employee`, `dim_department`, `dim_location` and
-`dim_job_role` have transformation functions, in `spark/gold/transform.py`.
+The five Phase 1 dimensions (`dim_date`, `dim_employee`, `dim_department`,
+`dim_location` and `dim_job_role`) are built in `spark/gold/transform.py`.
 Inputs are explicitly supplied Silver-conformed DataFrames, never discovered
 Raw/Bronze tables or an implicit latest batch. No input reader or Gold CLI is
 introduced. All outputs select only central-contract fields, append the shared
@@ -752,7 +753,8 @@ build specification. Spark analytical hashes match the Phase 0 Python reference;
 metadata is excluded, including the audit timestamp and source batch.
 
 `writer.py` supplies local proof functions only. Native local roots resolve to
-`gold/<model>/build_id=<id>/`; URI/UNC/glob roots and Phase 2 models are rejected.
+`gold/<model>/build_id=<id>/`; URI/UNC/glob roots and unimplemented models are rejected.
+The same writer also supports the two Phase 2 models.
 `write_local_dimension` validates before an `errorifexists` write, then invokes
 `verify_local_dimension`. Existing or partial destinations are never appended,
 overwritten or deleted. Verification is a separate read-only function: missing
@@ -771,5 +773,38 @@ The small fixtures contain 64 real calendar dates plus unknown (2023-12-29 throu
 2024-03-01), two employees (one active, one terminated), two departments sharing
 one BU, two locations and two job roles. Each source-backed dimension has two
 real rows plus unknown. Additional calendar tests cover the 2020/2021 ISO boundary
-and a single leap day. See the implementation plan for the current test evidence. Phase 2 remains
-unstarted.
+and a single leap day. See the implementation plan for the current test evidence.
+
+## Phase 2 complete - assignment and movement
+
+Phase 2 now provides callable builders in `spark/gold/phase2.py` for
+`dim_employee_assignment` and `fact_employee_movement`. Assignment intervals are
+half-open and bounded by hire, event boundaries, termination plus one day, or
+the explicit source cutoff plus one day. Current employee organisation values
+are labelled `current-state-assumed`; promotion and transfer values are labelled
+`event-derived`. Same-day events are coalesced at one daily boundary, while
+conflicting values for the same attribute fail validation. Business-unit history
+uses the current department mapping. Movement rows represent HIRE, EXIT,
+PROMOTION and TRANSFER with deltas +1, -1, 0 and 0 respectively; no restricted
+employee attributes are selected. These functions are local, caller-supplied
+DataFrame transformations only and do not publish Gold storage.
+
+The [Phase 2 validation matrix](../plans/gold-phase2-validation.md) maps each
+required behaviour to an executable test: no-event and sequential histories,
+attribute carry-forward, manager and unknown-reference handling, interval
+failures, assignment/event/movement uniqueness, compatible and conflicting
+same-day evidence, deterministic keys/hashes, exact schemas and governance.
+
+Transfer events preserve role; promotions preserve organisation and manager.
+A null transfer manager means no manager. Legitimately unknown attributes use
+key 0 and an unknown history basis; missing required positive dimension parents
+fail local publication. Optional unresolved managers use 0 without synthesizing
+employees. The source cutoff still bounds employees with future termination.
+
+Both models use the existing immutable local writer. Its sources mapping
+contains employees, promotions, transfers, employee_exits, departments,
+locations and job_roles from the explicit Silver batch. Publication validates
+required references and reconstructs the expected rows before writing.
+Duplicate paths fail; append and overwrite are unavailable; accepted files
+remain unchanged. This is local proof, not a production release.
+Phase 3 has not started.

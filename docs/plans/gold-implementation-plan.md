@@ -2,9 +2,9 @@
 
 ## Status and approvals
 
-Gold design decisions and Phase 0 are approved. Phase 1 core-dimension code,
+Gold design decisions are approved. Phase 0 is complete and approved. Phase 1 core-dimension code,
 in-memory validation and Linux Parquet validation are complete. Phase 1 is
-COMPLETE; Phase 2 has not started. No production Gold output
+COMPLETE; Phase 2 complete. Phase 3 has not started. No production Gold output
 or Gold CLI exists. This plan is not permission to begin another phase. The authoritative design is
 [Gold layer](../architecture/gold-layer.md), with
 [decisions](../architecture/gold-decisions.md). All ten approved MVP schemas,
@@ -30,7 +30,7 @@ the placeholders only when real tested entry points exist. Create
 
 ## Phase 0 — Contract foundation
 
-**Status: APPROVED.**
+**Status: COMPLETE and approved.**
 
 No Gold processing command is introduced. The existing test runner exercises
 the Phase 0 contracts as follows.
@@ -81,8 +81,8 @@ the contract foundation passes; no cloud or serving approval is implied.
 **Status: COMPLETE � local Linux physical Parquet proof and regressions passed.**
 
 The five callable core-dimension builders, validation gates, and local-only
-writer/readback contracts are implemented. No Gold reader, job, CLI, manifest
-publication, or Phase 2 model exists.
+writer/readback contracts are implemented. No Gold reader, job, CLI or manifest
+publication exists. Phase 2 completion evidence appears below.
 
 Phase 1 validation evidence: `python -m unittest discover -s tests/spark/gold
 -p "test_*.py" -v` ran 63 tests: 63 passed, 0 failed, 0 errors, and 3
@@ -91,7 +91,7 @@ physical tests ran in the Linux Docker runtime and passed. The complete Linux
 Docker Spark suite ran 104 tests and passed; the EMR compatibility suite ran
 104 tests and passed on Python 3.11, Java 17 and PySpark 3.5.6. The safe
 non-cloud Bronze/Silver regression set ran 22 tests and passed. Compileall,
-Black and `git diff --check` passed. Phase 2 remains unstarted.
+Black and `git diff --check` passed. Phase 2 assignment and movement implementation is complete; Phase 3 remains unstarted.
 
 | Item | Contract |
 | --- | --- |
@@ -107,6 +107,18 @@ assumption and calendar coverage; explicitly approve Phase 2.
 
 ## Phase 2 — Assignment history
 
+**Status: Phase 2 complete. Phase 3 has not started.**
+
+The [coverage matrix and validation report](gold-phase2-validation.md) records
+32 focused tests (31 native passes, one physical safeguard skip), the successful
+Linux equivalent, 136/136 complete Spark tests, 136/136 local EMR compatibility
+tests, and 41/41 separately rerun Bronze/Silver tests. Production corrections
+exposed by the new tests are documented there. No Phase 0 contract changed.
+
+Coverage includes sequential histories, supported carry-forward semantics,
+duplicate rejection, same-day ambiguity, deterministic keys/hashes, exact
+schema/nullability/governance, and immutable shared-writer integration.
+
 **Command: TO BE IMPLEMENTED**
 
 | Item | Contract |
@@ -121,7 +133,11 @@ assumption and calendar coverage; explicitly approve Phase 2.
 **Approval gate:** inspect reconstructed examples, unsupported-history assumptions,
 same-day conflict policy and interval tests; explicitly approve Phase 3.
 
-## Phase 3 — Movement
+## Historical Phase 3 movement work package
+
+This original design work package was completed within Phase 2. The table below
+is retained as a historical design reference, not outstanding Phase 3 work.
+Phase 3 has not started; its scope requires separate planning and approval.
 
 **Command: TO BE IMPLEMENTED**
 
@@ -208,3 +224,6 @@ Docker runtime before execution; do not require cloud access for these gates.
 evidence. Serving-engine/dbt/Power BI technology selection, live EMR execution,
 cloud publication and post-MVP models each require separate scope and approval.
 Local validation alone does not grant any of those permissions.
+
+
+Phase 2 implementation status: COMPLETE for the two approved models (dim_employee_assignment and fact_employee_movement). Builders are local callable functions with deterministic keys, bounded half-open intervals, same-day conflict detection, and approved movement deltas. Phase 3 remains unstarted.
