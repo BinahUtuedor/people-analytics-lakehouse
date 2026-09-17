@@ -5,7 +5,7 @@
 Gold data products are **design approved; no production release exists**. Phase 0
 is complete and approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
 Phase 2 complete: assignment and movement contract tests and local physical proof pass.
-Phase 3 has not started.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
 No Gold job or CLI exists. This document records
 the explicit approved decisions and is the authoritative repository Gold design
 entry point. [Gold decisions](gold-decisions.md) records their rationale;
@@ -777,7 +777,7 @@ and a single leap day. See the implementation plan for the current test evidence
 
 ## Phase 2 complete - assignment and movement
 
-Phase 2 now provides callable builders in `spark/gold/phase2.py` for
+Phase 2 now provides callable builders in `spark/gold/workforce_history.py` for
 `dim_employee_assignment` and `fact_employee_movement`. Assignment intervals are
 half-open and bounded by hire, event boundaries, termination plus one day, or
 the explicit source cutoff plus one day. Current employee organisation values
@@ -807,4 +807,29 @@ locations and job_roles from the explicit Silver batch. Publication validates
 required references and reconstructs the expected rows before writing.
 Duplicate paths fail; append and overwrite are unavailable; accepted files
 remain unchanged. This is local proof, not a production release.
-Phase 3 has not started.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
+
+
+## Phase 3 workforce monthly - local implementation
+
+`spark/gold/workforce_monthly.py` implements the existing employee-month employment-overlap
+contract. A row means participation during the month; `headcount_eom` means
+membership of the post-event closing population. Exit-month rows remain with
+headcount 0, assignment at the earlier of month-end and termination, and null
+tenure. Thus row count may exceed closing headcount. Reconciliation requires
+unique employee/month rows and `SUM(headcount_eom) = expected closing population`.
+
+Only date-dimension month ends inside the explicit reporting range and on or
+before the source cutoff are eligible. Phase 2 assignment history is consumed
+as supplied, using half-open lookup at the approved reference date. Missing or
+ambiguous required assignments fail; legitimate unknown organisation keys
+retain their reserved members. Exit evidence must reconcile with termination
+state. Historical limitations and current department-to-business-unit mapping
+remain unchanged. There is no new fact surrogate or restricted employee field.
+
+The existing shared writer validates workforce before immutable local writes,
+partitions it by reporting_year, and verifies full business/hash/metadata row
+equality after restoring logical Parquet nullability. Build ID, fixed timestamp
+and canonical business hashes reuse Phase 0/2 utilities. This is local proof,
+not production release acceptance. Detailed mapping, fixtures, coverage and
+execution results are in [Phase 3 validation](../plans/gold-phase3-validation.md).

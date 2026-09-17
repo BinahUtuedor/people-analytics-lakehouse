@@ -1,7 +1,8 @@
 # Gold Design Decisions
 
 Status: the decisions below are approved for the design baseline. Phase 0
-contracts are implemented; Gold data products and transformations are not. [Gold layer](gold-layer.md) is the engineering contract and
+contracts and Phase 1/2/3 local transformations and validation are complete.
+Phase 4 has not started. No production Gold release exists. [Gold layer](gold-layer.md) is the engineering contract and
 [implementation plan](../plans/gold-implementation-plan.md) defines approval
 gates. Approval of these decisions does not authorize implementation, cloud
 access, infrastructure, publication or a serving-engine selection.

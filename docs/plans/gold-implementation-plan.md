@@ -4,7 +4,7 @@
 
 Gold design decisions are approved. Phase 0 is complete and approved. Phase 1 core-dimension code,
 in-memory validation and Linux Parquet validation are complete. Phase 1 is
-COMPLETE; Phase 2 complete. Phase 3 has not started. No production Gold output
+COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started. No production Gold output
 or Gold CLI exists. This plan is not permission to begin another phase. The authoritative design is
 [Gold layer](../architecture/gold-layer.md), with
 [decisions](../architecture/gold-decisions.md). All ten approved MVP schemas,
@@ -91,7 +91,7 @@ physical tests ran in the Linux Docker runtime and passed. The complete Linux
 Docker Spark suite ran 104 tests and passed; the EMR compatibility suite ran
 104 tests and passed on Python 3.11, Java 17 and PySpark 3.5.6. The safe
 non-cloud Bronze/Silver regression set ran 22 tests and passed. Compileall,
-Black and `git diff --check` passed. Phase 2 assignment and movement implementation is complete; Phase 3 remains unstarted.
+Black and `git diff --check` passed. Phase 2 assignment and movement implementation is complete; Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
 
 | Item | Contract |
 | --- | --- |
@@ -107,7 +107,7 @@ assumption and calendar coverage; explicitly approve Phase 2.
 
 ## Phase 2 — Assignment history
 
-**Status: Phase 2 complete. Phase 3 has not started.**
+**Status: Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.**
 
 The [coverage matrix and validation report](gold-phase2-validation.md) records
 32 focused tests (31 native passes, one physical safeguard skip), the successful
@@ -137,7 +137,7 @@ same-day conflict policy and interval tests; explicitly approve Phase 3.
 
 This original design work package was completed within Phase 2. The table below
 is retained as a historical design reference, not outstanding Phase 3 work.
-Phase 3 has not started; its scope requires separate planning and approval.
+The current Phase 3 scope is workforce monthly, authorized separately from this completed movement work package.
 
 **Command: TO BE IMPLEMENTED**
 
@@ -153,13 +153,15 @@ Phase 3 has not started; its scope requires separate planning and approval.
 **Approval gate:** review event examples, source coverage and population/attribute
 reconciliations; explicitly approve Phase 4. Final rate labels remain prohibited.
 
-## Phase 4 — Workforce snapshot
+## Phase 3 — Workforce snapshot
 
-**Command: TO BE IMPLEMENTED**
+**Status: Phase 3 complete. Phase 4 has not started.**
+
+**Local callable implementation:** `spark.gold.workforce_monthly.build_fact_workforce_monthly`. No CLI or production publication. See [Phase 3 evidence](gold-phase3-validation.md).
 
 | Item | Contract |
 | --- | --- |
-| Prerequisites | Phase 3 accepted; explicit Phase 4 approval; approved employment-overlap population, day-based tenure and earlier-of-month-end/termination assignment contract |
+| Prerequisites | Phase 2 accepted; explicit Phase 3 approval; approved employment-overlap population, day-based tenure and earlier-of-month-end/termination assignment contract |
 | What happens internally | Generate fact_workforce_monthly for closed calendar periods with employment overlap; resolve organisation at earlier of month-end and termination; calculate headcount_eom and tenure_days_eom; validate against lifecycle evidence |
 | Input | Local employee/lifecycle fixtures, assignment/core dimensions, explicit reporting range and closure/source coverage cutoff |
 | Output | Monthly employee snapshots with headcount/tenure and independent closing-population reconciliation |
@@ -167,15 +169,15 @@ reconciliations; explicitly approve Phase 4. Final rate labels remain prohibited
 | Success condition | Composite employee/month PK unique; exact overlap population; no partial month; exit on snapshot date excluded from closing; current activity flags do not erase history; tenure is month-end minus hire only for HC=1 and null otherwise; opening + hires - exits equals closing; row count is never substituted for sum of headcount flags |
 
 **Approval gate:** review boundary fixtures, temporal attribution, monthly
-population and tenure behaviour; explicitly approve Phase 5.
+population and tenure behaviour; explicitly approve Phase 4.
 
-## Phase 5 — Payroll
+## Phase 4 — Payroll
 
 **Command: TO BE IMPLEMENTED**
 
 | Item | Contract |
 | --- | --- |
-| Prerequisites | Phase 4 accepted; explicit Phase 5 approval; approved DECIMAL(18,2) monetary schema and access restrictions; source component rounding tolerance documented with fixture evidence |
+| Prerequisites | Phase 3 accepted; explicit Phase 4 approval; approved DECIMAL(18,2) monetary schema and access restrictions; source component rounding tolerance documented with fixture evidence |
 | What happens internally | Build fact_payroll; preserve source components; join assignment at actual pay_period_end; label analytical period-end attribution; validate components and reconcile each by period/currency |
 | Input | Local payroll fixtures including hire/exit-clipped periods, core dimensions and assignment history |
 | Output | Restricted payroll fact and record/component/period/currency reconciliation evidence |
@@ -183,15 +185,15 @@ population and tenure behaviour; explicitly approve Phase 5.
 | Success condition | One fact row per source payroll record; no join fan-out; precise types; actual period-end lookup including exit date passes; source component identities checked with justified tolerance; no currency mixing or fabricated total-cost metric |
 
 **Approval gate:** review monetary semantics, attribution basis, rounding and
-access scope; explicitly approve Phase 6. Day-weighted allocation is excluded.
+access scope; explicitly approve Phase 5. Day-weighted allocation is excluded.
 
-## Phase 6 — Attendance
+## Phase 5 — Attendance
 
 **Command: TO BE IMPLEMENTED**
 
 | Item | Contract |
 | --- | --- |
-| Prerequisites | Phase 5 accepted; explicit Phase 6 approval; governed status and absence/hour definitions verified against source generation |
+| Prerequisites | Phase 4 accepted; explicit Phase 5 approval; governed status and absence/hour definitions verified against source generation |
 | What happens internally | Build fact_attendance using distributed joins; resolve work-date assignment; retain separate status, recorded/absent day counts and hours/overtime measures; enforce sensitivity restrictions |
 | Input | Local attendance fixtures, governed status definitions, core/assignment dimensions; bounded larger synthetic workload for scale checks |
 | Output | Attendance fact, uniqueness and separate hours/overtime reconciliation results |
@@ -199,9 +201,9 @@ access scope; explicitly approve Phase 6. Day-weighted allocation is excluded.
 | Success condition | One row per source attendance record and employee/work date; absence derived only from governed status; missing records not turned into absence; inclusive employment windows pass; hours reconcile separately; no driver-side record loops or unbounded collect |
 
 **Approval gate:** review status/day-count semantics, hours, sensitive reasons,
-physical partitioning and distributed processing evidence; explicitly approve Phase 7.
+physical partitioning and distributed processing evidence; explicitly approve Phase 6.
 
-## Phase 7 — Integrated MVP validation
+## Phase 6 — Integrated MVP validation
 
 **Command: TO BE IMPLEMENTED**
 
@@ -213,7 +215,7 @@ Docker runtime before execution; do not require cloud access for these gates.
 
 | Item | Contract |
 | --- | --- |
-| Prerequisites | Phases 0–6 accepted; explicit Phase 7 approval; Linux Docker runtime on Windows; complete local Silver fixture batch; portable entry point now implemented and documented |
+| Prerequisites | Phases 0–5 accepted; explicit Phase 6 approval; Linux Docker runtime on Windows; complete local Silver fixture batch; portable entry point now implemented and documented |
 | What happens internally | Run full Spark regression and physical Parquet integration; rebuild in separate local roots and compare logical hashes; run model reconciliations/cross-model FK checks; exercise duplicate failure, partial failure and verification-only; review BI star schema and EMR-target API/runtime compatibility |
 | Input | Complete local fixture batch, pinned release specification, every MVP model, supported local and EMR-compatible runtimes |
 | Output | Reviewable integrated validation report, reproducible local release and readback evidence, tested operational documentation |
@@ -226,4 +228,4 @@ cloud publication and post-MVP models each require separate scope and approval.
 Local validation alone does not grant any of those permissions.
 
 
-Phase 2 implementation status: COMPLETE for the two approved models (dim_employee_assignment and fact_employee_movement). Builders are local callable functions with deterministic keys, bounded half-open intervals, same-day conflict detection, and approved movement deltas. Phase 3 remains unstarted.
+Phase 2 implementation status: COMPLETE for the two approved models (dim_employee_assignment and fact_employee_movement). Builders are local callable functions with deterministic keys, bounded half-open intervals, same-day conflict detection, and approved movement deltas. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.

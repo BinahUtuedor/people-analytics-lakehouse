@@ -13,7 +13,7 @@ from tests.spark.gold.dimension_fixtures import (
     CoreDimensionTestCase,
     literal_frame,
 )
-from spark.gold.phase2 import (
+from spark.gold.workforce_history import (
     build_dim_employee_assignment,
     build_fact_employee_movement,
     validate_assignment_intervals,

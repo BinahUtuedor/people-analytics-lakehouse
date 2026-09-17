@@ -16,14 +16,21 @@ from spark.gold.dimension_validation import (
 from spark.gold.manifest import ExistingOutputError
 from spark.gold.contracts import get_gold_schema
 from spark.gold.validate import ValidationReport
-from spark.gold.phase2 import PHASE2_MODELS, _ctx, validate_phase2_output
+from spark.gold.workforce_history import PHASE2_MODELS, _ctx, validate_phase2_output
+from spark.gold.workforce_monthly import WORKFORCE_MODEL, validate_workforce_monthly
 
 
 def _context(build, model):
-    return _ctx(build, model) if model in PHASE2_MODELS else build.context(model)
+    return (
+        _ctx(build, model)
+        if model in PHASE2_MODELS + (WORKFORCE_MODEL,)
+        else build.context(model)
+    )
 
 
 def _validate(frame, model, build, sources, *, dim_date=None):
+    if model == WORKFORCE_MODEL:
+        return validate_workforce_monthly(frame, build, sources)
     if model in PHASE2_MODELS:
         return validate_phase2_output(frame, model, build, sources)
     return validate_core_dimension(frame, model, build, sources, dim_date=dim_date)
@@ -70,6 +77,10 @@ def verify_local_dimension(
     _validate(expected, model, build, sources, dim_date=dim_date)
     actual = expected.sparkSession.read.option("mergeSchema", "true").parquet(str(path))
     schema = get_gold_schema(model)
+    # Partition columns are discovered after file columns by Parquet readers.
+    # Restore the contract order only after checking the complete column set.
+    if model == WORKFORCE_MODEL and set(actual.columns) == set(schema.fieldNames()):
+        actual = actual.select(*schema.fieldNames())
     if actual.columns != schema.fieldNames() or any(
         actual.schema[f.name].dataType != f.dataType for f in schema
     ):
@@ -113,9 +124,10 @@ def write_local_dimension(
         raise ExistingOutputError("Gold dimension destination already exists")
     _validate(frame, model, build, sources, dim_date=dim_date)
     try:
-        frame.write.mode("errorifexists").option("compression", "snappy").parquet(
-            str(path)
-        )
+        writer = frame.write.mode("errorifexists").option("compression", "snappy")
+        if model == WORKFORCE_MODEL:
+            writer = writer.partitionBy("reporting_year")
+        writer.parquet(str(path))
     except Exception as error:
         if getattr(error, "getErrorClass", lambda: None)() == "PATH_ALREADY_EXISTS":
             raise ExistingOutputError(

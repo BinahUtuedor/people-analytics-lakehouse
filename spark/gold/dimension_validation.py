@@ -180,6 +180,7 @@ def enforce_schema(frame: DataFrame, model: str) -> DataFrame:
     if model not in CORE_DIMENSIONS + (
         "dim_employee_assignment",
         "fact_employee_movement",
+        "fact_workforce_monthly",
     ):
         raise ValueError("Not an implemented Gold model")
     schema = get_gold_schema(model)
