@@ -5,7 +5,7 @@
 Gold data products are **design approved; no production release exists**. Phase 0
 is complete and approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
 Phase 2 complete: assignment and movement contract tests and local physical proof pass.
-Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.
 No Gold job or CLI exists. This document records
 the explicit approved decisions and is the authoritative repository Gold design
 entry point. [Gold decisions](gold-decisions.md) records their rationale;
@@ -726,7 +726,8 @@ or input-fingerprint contract. Phase 1 does not compute source fingerprints or
 accept the full ten-model release; those identities are supplied by the caller.
 
 The declared Phase 1 date range is `BuildSpec.reporting_start` through
-`BuildSpec.source_cutoff`, inclusive, and therefore participates in build identity.
+the calendar month-end containing `BuildSpec.source_cutoff`, inclusive.
+The bounds and code revision participate in build identity.
 Callers must provide bounds covering every required source date. An employee
 hire/termination date outside the supplied calendar fails; transforms never
 extend coverage using runtime clocks. This initial callable boundary does not
@@ -769,8 +770,8 @@ readback code ran in the required Linux runtime. The three physical integration
 tests passed, including schema/nullability, count/hash/metadata preservation,
 unknown-member preservation and immutable duplicate-output checks.
 
-The small fixtures contain 64 real calendar dates plus unknown (2023-12-29 through
-2024-03-01), two employees (one active, one terminated), two departments sharing
+The small fixtures contain 94 real calendar dates plus unknown (2023-12-29 through
+2024-03-31), two employees (one active, one terminated), two departments sharing
 one BU, two locations and two job roles. Each source-backed dimension has two
 real rows plus unknown. Additional calendar tests cover the 2020/2021 ISO boundary
 and a single leap day. See the implementation plan for the current test evidence.
@@ -807,7 +808,7 @@ locations and job_roles from the explicit Silver batch. Publication validates
 required references and reconstructs the expected rows before writing.
 Duplicate paths fail; append and overwrite are unavailable; accepted files
 remain unchanged. This is local proof, not a production release.
-Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.
 
 
 ## Phase 3 workforce monthly - local implementation
@@ -833,3 +834,64 @@ equality after restoring logical Parquet nullability. Build ID, fixed timestamp
 and canonical business hashes reuse Phase 0/2 utilities. This is local proof,
 not production release acceptance. Detailed mapping, fixtures, coverage and
 execution results are in [Phase 3 validation](../plans/gold-phase3-validation.md).
+
+
+## Approved Phase 4 calendar reference refinement
+
+`dim_date` covers `reporting_start` through the calendar month-end containing
+`source_cutoff`. Business/source coverage remains bounded by `source_cutoff`.
+The presence of a later reference date does not assert processed business activity.
+Assignment intervals, movement events, workforce snapshots and actual payroll
+periods retain their independent cutoff rules. The existing
+`closed-month-overlap-v1` and `post-event-closing-headcount-v1` policies are unchanged.
+
+This refinement is required because `fact_payroll.payroll_month_key` represents
+the source period's calendar month-end, including incomplete current-month pay.
+For cutoff 2024-04-15, the calendar includes 2024-04-30; payroll ending April 15
+uses reporting key 20240430 and assignment on April 15. No April workforce
+snapshot becomes eligible. The source cutoff is not extended.
+
+
+## Gold Phase 4 - fact_payroll local implementation
+
+Implementation module: `spark/gold/payroll.py`. The Phase 0 contract remains
+unchanged. Callable `build_fact_payroll(sources, build)` consumes explicit Silver
+payroll/employees and already validated same-build core/assignment dimensions.
+`validate_payroll` additionally reconstructs all business and metadata values;
+`payroll_key_reconciliation` and `payroll_monetary_reconciliation` expose ID and
+actual-period/currency component metrics. No source reader or Gold CLI is added.
+
+Gold retains each legitimate source payroll record, including incomplete current
+months. Actual start/end must occupy one month, fall within employment, and end
+on/before source_cutoff. A final period ending on termination is included;
+post-employment periods fail. Assignment is resolved at actual period end.
+Reporting month-end and reporting year are reference attributes only.
+
+All eight monetary fields normalize exactly to DECIMAL(18,2). Retained Silver
+doubles are converted through decimal text before arithmetic, with precision,
+finite/range and roundtrip checks. Required source dates may be dates or midnight
+timestamps; time-bearing timestamps fail. Currency/status remain required source
+text under their existing open domains. Zero is allowed; negative components
+are invalid for the current source model. No corrections/reversals are invented.
+
+The generator's independent Decimal ROUND_HALF_UP persistence supports exact
+gross = base + overtime + bonus, abs(deductions - pension - tax) <= 0.01, and
+abs(net - gross + deductions) <= 0.01. Source-to-Gold reconciliation remains exact
+for every component, source ID and actual period/currency. Pension and tax already
+belong to deductions and are not subtracted twice. The detailed validation report
+records the decimal fixture evidence; no exchange rates or total-cost measure.
+
+The shared local writer uses payroll's approved year-first Parquet layout:
+`gold/fact_payroll/reporting_year=<year>/build_id=<id>/`. A separate exclusive
+local `_build_claims/build_id=<id>/` directory protects the whole build, including
+empty and partial writes. It is a concurrency claim, not release acceptance.
+Partial output remains for explicit operator resolution. Verification checks the
+exact expected year inventory, each partition's schema/year, required values,
+logical nullability, source reconstruction, metadata/hashes and full row equality.
+Other Gold model layouts are unchanged. No accepted file is overwritten/deleted.
+
+Payroll measures and employee linkage remain approved restricted detail. No
+names, email, DOB, gender, source notes or bank/tax/national identifiers are
+projected. Hashes do not anonymise data. Phase 2 history limitations remain.
+See [Phase 4 mapping and validation](../plans/gold-phase4-validation.md).
+Phase 5 has not started.

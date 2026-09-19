@@ -18,17 +18,25 @@ from spark.gold.contracts import get_gold_schema
 from spark.gold.validate import ValidationReport
 from spark.gold.workforce_history import PHASE2_MODELS, _ctx, validate_phase2_output
 from spark.gold.workforce_monthly import WORKFORCE_MODEL, validate_workforce_monthly
+from spark.gold.payroll import PAYROLL_MODEL, validate_payroll
 
 
 def _context(build, model):
     return (
         _ctx(build, model)
-        if model in PHASE2_MODELS + (WORKFORCE_MODEL,)
+        if model
+        in PHASE2_MODELS
+        + (
+            WORKFORCE_MODEL,
+            PAYROLL_MODEL,
+        )
         else build.context(model)
     )
 
 
 def _validate(frame, model, build, sources, *, dim_date=None):
+    if model == PAYROLL_MODEL:
+        return validate_payroll(frame, build, sources)
     if model == WORKFORCE_MODEL:
         return validate_workforce_monthly(frame, build, sources)
     if model in PHASE2_MODELS:
@@ -51,7 +59,39 @@ def local_dimension_path(root: str | Path, model: str, build: DimensionBuild) ->
     path = Path(root)
     if ":" in text and not (path.drive and len(path.drive) == 2):
         raise ValueError("Storage schemes are not supported")
-    return path.resolve() / "gold" / model / ("build_id=" + build.spec.build_id)
+    base = path.resolve() / "gold" / model
+    if model == PAYROLL_MODEL:
+        # Exclusive local claim isolates even an empty or partially written build.
+        # Parquet itself follows the approved year-first layout, below.
+        base = base / "_build_claims"
+    return base / ("build_id=" + build.spec.build_id)
+
+
+def local_payroll_partition_path(root, build, reporting_year):
+    """Native local payroll leaf; reference/business dates are stored in the files."""
+    if type(reporting_year) is not int or not 1 <= reporting_year <= 9999:
+        raise ValueError("Invalid payroll reporting year")
+    claim = local_dimension_path(root, PAYROLL_MODEL, build)
+    return claim.parent.parent / f"reporting_year={reporting_year}" / claim.name
+
+
+def _payroll_paths(frame, root, build):
+    # At most 9999 calendar years, never payroll rows, reach the driver.
+    return [
+        (
+            row.reporting_year,
+            local_payroll_partition_path(root, build, row.reporting_year),
+        )
+        for row in frame.select("reporting_year")
+        .distinct()
+        .orderBy("reporting_year")
+        .collect()
+    ]
+
+
+def _existing_payroll_paths(root, build):
+    claim = local_dimension_path(root, PAYROLL_MODEL, build)
+    return set(claim.parent.parent.glob("reporting_year=*/" + claim.name))
 
 
 def verify_local_dimension(
@@ -75,7 +115,42 @@ def verify_local_dimension(
             "Missing dimension output; verification cannot create it"
         )
     _validate(expected, model, build, sources, dim_date=dim_date)
-    actual = expected.sparkSession.read.option("mergeSchema", "true").parquet(str(path))
+    if model == PAYROLL_MODEL:
+        paths = _payroll_paths(expected, root, build)
+        if _existing_payroll_paths(root, build) != {p for _, p in paths}:
+            raise ExistingOutputError(
+                "Payroll partition inventory differs from expected build"
+            )
+        actual = None
+        from pyspark.sql import functions as F
+
+        for year, leaf in paths:
+            # Recursive lookup disables Hive inference of build_id. All logical
+            # contract fields, including reporting_year, remain in Parquet.
+            part = (
+                expected.sparkSession.read.option("mergeSchema", "true")
+                .option("recursiveFileLookup", "true")
+                .parquet(str(leaf))
+            )
+            schema = get_gold_schema(model)
+            if part.columns != schema.fieldNames() or any(
+                part.schema[f.name].dataType != f.dataType for f in schema
+            ):
+                raise ValueError(
+                    "Physical Gold schema differs from the approved contract"
+                )
+            _gate(
+                _context(build, model),
+                "physical_partition_year",
+                part.filter(~F.col("reporting_year").eqNullSafe(F.lit(year))).count(),
+            )
+            actual = part if actual is None else actual.unionByName(part)
+        if actual is None:
+            actual = expected.sparkSession.createDataFrame([], get_gold_schema(model))
+    else:
+        actual = expected.sparkSession.read.option("mergeSchema", "true").parquet(
+            str(path)
+        )
     schema = get_gold_schema(model)
     # Partition columns are discovered after file columns by Parquet readers.
     # Restore the contract order only after checking the complete column set.
@@ -120,9 +195,24 @@ def write_local_dimension(
     a local proof for one implemented Gold model, not an accepted ten-model release.
     """
     path = local_dimension_path(root, model, build)
-    if path.exists():
+    if path.exists() or (
+        model == PAYROLL_MODEL and _existing_payroll_paths(root, build)
+    ):
         raise ExistingOutputError("Gold dimension destination already exists")
     _validate(frame, model, build, sources, dim_date=dim_date)
+    if model == PAYROLL_MODEL:
+        paths = _payroll_paths(frame, root, build)
+        try:
+            path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError as error:
+            raise ExistingOutputError("Gold payroll build already claimed") from error
+        from pyspark.sql import functions as F
+
+        for year, leaf in paths:
+            frame.filter(F.col("reporting_year") == year).write.mode(
+                "errorifexists"
+            ).option("compression", "snappy").parquet(str(leaf))
+        return verify_local_dimension(frame, root, model, build, sources)
     try:
         writer = frame.write.mode("errorifexists").option("compression", "snappy")
         if model == WORKFORCE_MODEL:

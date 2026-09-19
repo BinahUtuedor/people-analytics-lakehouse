@@ -49,7 +49,7 @@ def build_dim_date(spark: SparkSession, build: DimensionBuild) -> DataFrame:
     """Generate the declared inclusive calendar without driver-side date loops."""
     build.require_runtime(spark)
     spec = build.spec
-    count = (spec.source_cutoff - spec.reporting_start).days + 1
+    count = (build.calendar_end - spec.reporting_start).days + 1
     real = spark.range(count).select(
         F.date_add(F.lit(spec.reporting_start), F.col("id").cast("int")).alias(
             "calendar_date"

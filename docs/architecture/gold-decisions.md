@@ -2,7 +2,7 @@
 
 Status: the decisions below are approved for the design baseline. Phase 0
 contracts and Phase 1/2/3 local transformations and validation are complete.
-Phase 4 has not started. No production Gold release exists. [Gold layer](gold-layer.md) is the engineering contract and
+Phase 4 payroll is complete and validated. No production Gold release exists. [Gold layer](gold-layer.md) is the engineering contract and
 [implementation plan](../plans/gold-implementation-plan.md) defines approval
 gates. Approval of these decisions does not authorize implementation, cloud
 access, infrastructure, publication or a serving-engine selection.
@@ -28,3 +28,19 @@ Any later change must update this record and the affected schema, validation
 and operational contracts before implementation. In particular, do not silently
 switch the cutoff, snapshot frequency, history assumptions, attribution method
 or rate denominator while implementing an individual model.
+
+
+## Approved Phase 4 calendar reference refinement
+
+`dim_date` covers `reporting_start` through the calendar month-end containing
+`source_cutoff`. Business/source coverage remains bounded by `source_cutoff`.
+The presence of a later reference date does not assert processed business activity.
+Assignment intervals, movement events, workforce snapshots and actual payroll
+periods retain their independent cutoff rules. The existing
+`closed-month-overlap-v1` and `post-event-closing-headcount-v1` policies are unchanged.
+
+This refinement is required because `fact_payroll.payroll_month_key` represents
+the source period's calendar month-end, including incomplete current-month pay.
+For cutoff 2024-04-15, the calendar includes 2024-04-30; payroll ending April 15
+uses reporting key 20240430 and assignment on April 15. No April workforce
+snapshot becomes eligible. The source cutoff is not extended.

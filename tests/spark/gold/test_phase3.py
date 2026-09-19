@@ -225,6 +225,9 @@ class WorkforceTests(CoreDimensionTestCase):
             )
 
     def test_calendar_closed_leap_months_and_midmonth_cutoff(self):
+        self.assertEqual(
+            self.sources["dim_date"].filter(F.col("date_key") == 20240430).count(), 1
+        )
         self.assertEqual({k[1] for k in self.rows}, {20240131, 20240229, 20240331})
         self.assertTrue(
             all(
@@ -232,6 +235,43 @@ class WorkforceTests(CoreDimensionTestCase):
                 for r in closed_months(self.sources["dim_date"], self.build).collect()
             )
         )
+
+    def test_reference_calendar_does_not_extend_assignment_or_events(self):
+        future = (
+            self.sources["promotions"]
+            .limit(1)
+            .withColumn("promotion_id", F.lit(999).cast("long"))
+            .withColumn("promotion_date", F.lit(date(2024, 4, 20)))
+        )
+        promotions = self.sources["promotions"].unionByName(future)
+        assignments = build_dim_employee_assignment(
+            self.sources["employees"],
+            promotions,
+            self.sources["transfers"],
+            self.sources["employee_exits"],
+            self.build,
+        )
+        self.assertEqual(
+            assignments.filter(
+                F.col("valid_to_exclusive") > F.lit(date(2024, 4, 16))
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            assignments.filter(
+                F.col("valid_from_date") > F.lit(date(2024, 4, 15))
+            ).count(),
+            0,
+        )
+        movement = build_fact_employee_movement(
+            self.sources["employees"],
+            promotions,
+            self.sources["transfers"],
+            self.sources["employee_exits"],
+            assignments,
+            self.build,
+        )
+        self.assertEqual(movement.filter(F.col("event_date_key") > 20240415).count(), 0)
 
     def test_calendar_exact_eom_and_before_first_eom(self):
         for cutoff, expected in [

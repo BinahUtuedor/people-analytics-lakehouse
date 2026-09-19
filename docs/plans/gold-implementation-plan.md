@@ -4,7 +4,7 @@
 
 Gold design decisions are approved. Phase 0 is complete and approved. Phase 1 core-dimension code,
 in-memory validation and Linux Parquet validation are complete. Phase 1 is
-COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started. No production Gold output
+COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated. No production Gold output
 or Gold CLI exists. This plan is not permission to begin another phase. The authoritative design is
 [Gold layer](../architecture/gold-layer.md), with
 [decisions](../architecture/gold-decisions.md). All ten approved MVP schemas,
@@ -78,7 +78,7 @@ the contract foundation passes; no cloud or serving approval is implied.
 
 ## Phase 1 - Core dimensions
 
-**Status: COMPLETE � local Linux physical Parquet proof and regressions passed.**
+**Status: COMPLETE � local Linux physical Parquet proof and regressions passed.**
 
 The five callable core-dimension builders, validation gates, and local-only
 writer/readback contracts are implemented. No Gold reader, job, CLI or manifest
@@ -91,7 +91,7 @@ physical tests ran in the Linux Docker runtime and passed. The complete Linux
 Docker Spark suite ran 104 tests and passed; the EMR compatibility suite ran
 104 tests and passed on Python 3.11, Java 17 and PySpark 3.5.6. The safe
 non-cloud Bronze/Silver regression set ran 22 tests and passed. Compileall,
-Black and `git diff --check` passed. Phase 2 assignment and movement implementation is complete; Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
+Black and `git diff --check` passed. Phase 2 assignment and movement implementation is complete; Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.
 
 | Item | Contract |
 | --- | --- |
@@ -107,7 +107,7 @@ assumption and calendar coverage; explicitly approve Phase 2.
 
 ## Phase 2 — Assignment history
 
-**Status: Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.**
+**Status: Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.**
 
 The [coverage matrix and validation report](gold-phase2-validation.md) records
 32 focused tests (31 native passes, one physical safeguard skip), the successful
@@ -155,7 +155,7 @@ reconciliations; explicitly approve Phase 4. Final rate labels remain prohibited
 
 ## Phase 3 — Workforce snapshot
 
-**Status: Phase 3 complete. Phase 4 has not started.**
+**Status: Phase 3 complete. Phase 4 payroll is complete and validated.**
 
 **Local callable implementation:** `spark.gold.workforce_monthly.build_fact_workforce_monthly`. No CLI or production publication. See [Phase 3 evidence](gold-phase3-validation.md).
 
@@ -173,7 +173,7 @@ population and tenure behaviour; explicitly approve Phase 4.
 
 ## Phase 4 — Payroll
 
-**Command: TO BE IMPLEMENTED**
+**Command:** local callable `spark.gold.payroll.build_fact_payroll`; no Gold CLI or production publication.
 
 | Item | Contract |
 | --- | --- |
@@ -184,8 +184,10 @@ population and tenure behaviour; explicitly approve Phase 4.
 | Side effects | Payroll code/tests/docs and isolated local Parquet; no source allocation changes |
 | Success condition | One fact row per source payroll record; no join fan-out; precise types; actual period-end lookup including exit date passes; source component identities checked with justified tolerance; no currency mixing or fabricated total-cost metric |
 
-**Approval gate:** review monetary semantics, attribution basis, rounding and
-access scope; explicitly approve Phase 5. Day-weighted allocation is excluded.
+**Validation result:** complete. The focused payroll suite passed 35/35,
+physical payroll checks passed 4/4, complete Gold passed 165/165, main Spark
+passed 206/206, local EMR compatibility passed 206/206, and the safe
+Bronze/Silver regression passed 41/41. Day-weighted allocation is excluded.
 
 ## Phase 5 — Attendance
 
@@ -228,4 +230,12 @@ cloud publication and post-MVP models each require separate scope and approval.
 Local validation alone does not grant any of those permissions.
 
 
-Phase 2 implementation status: COMPLETE for the two approved models (dim_employee_assignment and fact_employee_movement). Builders are local callable functions with deterministic keys, bounded half-open intervals, same-day conflict detection, and approved movement deltas. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 has not started.
+Phase 2 implementation status: COMPLETE for the two approved models (dim_employee_assignment and fact_employee_movement). Builders are local callable functions with deterministic keys, bounded half-open intervals, same-day conflict detection, and approved movement deltas. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.
+
+
+## Approved Phase 4 calendar reference refinement
+
+Calendar reference coverage is reporting_start through the month-end containing
+source_cutoff. Business coverage is unchanged. Payroll reporting month-end may
+follow its actual period end and cutoff; assignment uses actual period end.
+A reference date never makes a workforce snapshot or business event eligible.

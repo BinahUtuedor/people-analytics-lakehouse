@@ -45,7 +45,7 @@ class LocalPathTests(TestCase):
             with self.subTest(root=root), self.assertRaises(ValueError):
                 local_dimension_path(root, "dim_date", build)
         with self.assertRaises(ValueError):
-            local_dimension_path("local", "fact_payroll", build)
+            local_dimension_path("local", "fact_attendance", build)
 
     def test_existing_destination_fails_before_dataframe_use(self):
         build = DimensionBuild(spec(), STAMP)
@@ -100,7 +100,7 @@ class PhysicalDimensionTests(CoreDimensionTestCase):
                     )
                     self.assertTrue(report.passed)
                     self.assertEqual(actual.schema, get_gold_schema(model))
-                    self.assertEqual(actual.count(), 65 if model == "dim_date" else 3)
+                    self.assertEqual(actual.count(), 95 if model == "dim_date" else 3)
                     self.assertEqual(actual.filter("is_unknown").count(), 1)
                     self.assertEqual(actual.exceptAll(expected).count(), 0)
                     before = {

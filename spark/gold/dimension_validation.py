@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from calendar import monthrange
+from datetime import date, datetime, timezone
 from functools import reduce
 from operator import or_
 from collections.abc import Mapping
@@ -36,13 +37,19 @@ CORE_DIMENSIONS = (
 class DimensionBuild:
     """One explicit build and fixed audit instant shared by every core dimension.
 
-    Phase 1's declared calendar is reporting_start through source_cutoff,
-    inclusive. Source dates outside that interval fail, never extend it silently.
+    Reference coverage ends at the cutoff month's last day. This does not
+    extend source, assignment, event or fact eligibility beyond source_cutoff.
     All bounds already participate in the approved BuildSpec identity.
     """
 
     spec: BuildSpec
     generated_at: datetime
+
+    @property
+    def calendar_end(self) -> date:
+        """Deterministic reference boundary, independent of business coverage."""
+        cutoff = self.spec.source_cutoff
+        return cutoff.replace(day=monthrange(cutoff.year, cutoff.month)[1])
 
     def __post_init__(self) -> None:
         self.spec.require_supported()
@@ -181,6 +188,7 @@ def enforce_schema(frame: DataFrame, model: str) -> DataFrame:
         "dim_employee_assignment",
         "fact_employee_movement",
         "fact_workforce_monthly",
+        "fact_payroll",
     ):
         raise ValueError("Not an implemented Gold model")
     schema = get_gold_schema(model)
@@ -284,9 +292,7 @@ def validate_core_dimension(
     )
     if model == "dim_date":
         results.extend(_validate_calendar(real, context, build))
-        expected_count = (
-            build.spec.source_cutoff - build.spec.reporting_start
-        ).days + 1
+        expected_count = (build.calendar_end - build.spec.reporting_start).days + 1
     else:
         source_name = contract.silver_sources[0]
         source = sources[source_name]
@@ -360,7 +366,7 @@ def _validate_calendar(real, context, build):
         "is_weekend": iso_day >= 6,
     }
     invalid = (day < F.lit(build.spec.reporting_start)) | (
-        day > F.lit(build.spec.source_cutoff)
+        day > F.lit(build.calendar_end)
     )
     for name, value in expected.items():
         invalid = invalid | ~F.col(name).eqNullSafe(value)

@@ -41,7 +41,7 @@ class CoreDimensionTests(CoreDimensionTestCase):
         for model, frame in self.frames.items():
             with self.subTest(model=model):
                 self.assertEqual(frame.schema, get_gold_schema(model))
-                rows = frame.collect()  # At most 65 declared fixture rows.
+                rows = frame.collect()  # At most 95 declared fixture rows.
                 unknown = [r for r in rows if r.is_unknown]
                 self.assertEqual(len(unknown), 1)
                 self.assertEqual(
@@ -67,7 +67,7 @@ class CoreDimensionTests(CoreDimensionTestCase):
             .orderBy("calendar_date")
             .collect()
         )
-        self.assertEqual(len(rows), 64)
+        self.assertEqual(len(rows), 94)
         for index, row in enumerate(rows):
             day = self.build.spec.reporting_start + timedelta(days=index)
             self.assertEqual(row.calendar_date, day)
@@ -99,7 +99,7 @@ class CoreDimensionTests(CoreDimensionTestCase):
             .orderBy("calendar_date")
             .collect()
         )
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 35)
         for row in rows:
             self.assertEqual(
                 (row.iso_week_year, row.iso_week_number, row.iso_day_of_week),
@@ -149,7 +149,7 @@ class CoreDimensionTests(CoreDimensionTestCase):
                 for r in report.results
                 if r.check_name == "source_reconciliation"
             )
-            self.assertEqual(metric["real_rows"], "64" if model == "dim_date" else "2")
+            self.assertEqual(metric["real_rows"], "94" if model == "dim_date" else "2")
             self.assertEqual(metric["unknown_rows"], "1")
 
     def test_lifecycle_invalid_ids_duplicate_numbers_and_dates_outside_coverage_fail(
