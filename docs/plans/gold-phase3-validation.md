@@ -109,7 +109,7 @@ flags even when monthly aggregates still match.
 
 ## Executable coverage
 
-Tests are in `tests.spark.gold.test_phase3.WorkforceTests`.
+Tests are in `tests.spark.gold.test_workforce_monthly.WorkforceTests`.
 
 | Coverage | Tests |
 | --- | --- |

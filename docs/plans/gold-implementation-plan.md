@@ -4,7 +4,7 @@
 
 Gold design decisions are approved. Phase 0 is complete and approved. Phase 1 core-dimension code,
 in-memory validation and Linux Parquet validation are complete. Phase 1 is
-COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated. No production Gold output
+COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated. Phase 5 attendance is implemented and validated locally. No production Gold output
 or Gold CLI exists. This plan is not permission to begin another phase. The authoritative design is
 [Gold layer](../architecture/gold-layer.md), with
 [decisions](../architecture/gold-decisions.md). All ten approved MVP schemas,
@@ -119,7 +119,7 @@ Coverage includes sequential histories, supported carry-forward semantics,
 duplicate rejection, same-day ambiguity, deterministic keys/hashes, exact
 schema/nullability/governance, and immutable shared-writer integration.
 
-**Command: TO BE IMPLEMENTED**
+**Command:** `spark.gold.attendance.build_fact_attendance`; local callable, no Gold CLI or production publication.
 
 | Item | Contract |
 | --- | --- |
@@ -189,21 +189,20 @@ physical payroll checks passed 4/4, complete Gold passed 165/165, main Spark
 passed 206/206, local EMR compatibility passed 206/206, and the safe
 Bronze/Silver regression passed 41/41. Day-weighted allocation is excluded.
 
-## Phase 5 — Attendance
+## Phase 5 — Attendance (complete)
 
-**Command: TO BE IMPLEMENTED**
+**Command:** `spark.gold.attendance.build_fact_attendance`; local callable, no Gold CLI or production publication.
 
 | Item | Contract |
 | --- | --- |
-| Prerequisites | Phase 4 accepted; explicit Phase 5 approval; governed status and absence/hour definitions verified against source generation |
+| Prerequisites | Phase 4 accepted; governed status and absence/hour definitions verified against source generation |
 | What happens internally | Build fact_attendance using distributed joins; resolve work-date assignment; retain separate status, recorded/absent day counts and hours/overtime measures; enforce sensitivity restrictions |
 | Input | Local attendance fixtures, governed status definitions, core/assignment dimensions; bounded larger synthetic workload for scale checks |
 | Output | Attendance fact, uniqueness and separate hours/overtime reconciliation results |
 | Side effects | Attendance code/tests/docs and isolated local year-partitioned Parquet |
-| Success condition | One row per source attendance record and employee/work date; absence derived only from governed status; missing records not turned into absence; inclusive employment windows pass; hours reconcile separately; no driver-side record loops or unbounded collect |
+| Success condition | One row per source attendance record and employee/work date; absence derived only from governed status; missing records not turned into absence; inclusive employment windows pass; hours reconcile separately; no driver-side record loops or unbounded collect. Met: focused 8/8, physical 2/2, complete Gold 173/173. |
 
-**Approval gate:** review status/day-count semantics, hours, sensitive reasons,
-physical partitioning and distributed processing evidence; explicitly approve Phase 6.
+**Validation record:** [Gold Phase 5 validation](gold-phase5-validation.md).
 
 ## Phase 6 — Integrated MVP validation
 

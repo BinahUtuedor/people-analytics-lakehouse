@@ -5,7 +5,7 @@ Status: **Phase 2 complete**. Phase 3 has not started. No known required contrac
 ## Executable coverage matrix
 
 All test names below are methods of
-tests.spark.gold.test_phase2.Phase2SmokeTests unless explicitly qualified.
+tests.spark.gold.test_assignment_history.Phase2SmokeTests unless explicitly qualified.
 Assertions compare logical rows or keys, never physical output order.
 
 | Required behaviour | Executable evidence |
@@ -115,9 +115,9 @@ The EMR image reports Python 3.11.13, Java 17.0.16 and PySpark 3.5.6.
 Commands used from the repository root:
 
 - Set PYSPARK_PYTHON and PYSPARK_DRIVER_PYTHON to (Get-Command python).Source,
-  then run python -m unittest tests.spark.gold.test_phase2 -v.
+  then run python -m unittest tests.spark.gold.test_assignment_history -v.
 - docker compose run --rm spark-tests python -m unittest
-  tests.spark.gold.test_phase2.Phase2SmokeTests.test_phase2_local_parquet_roundtrip -v
+  tests.spark.gold.test_assignment_history.Phase2SmokeTests.test_phase2_local_parquet_roundtrip -v
 - docker compose run --rm spark-tests
 - docker compose run --rm emr-compat-tests
 - docker compose run --rm spark-tests python -m unittest

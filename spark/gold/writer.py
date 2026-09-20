@@ -19,6 +19,7 @@ from spark.gold.validate import ValidationReport
 from spark.gold.workforce_history import PHASE2_MODELS, _ctx, validate_phase2_output
 from spark.gold.workforce_monthly import WORKFORCE_MODEL, validate_workforce_monthly
 from spark.gold.payroll import PAYROLL_MODEL, validate_payroll
+from spark.gold.attendance import ATTENDANCE_MODEL, validate_attendance
 
 
 def _context(build, model):
@@ -29,6 +30,7 @@ def _context(build, model):
         + (
             WORKFORCE_MODEL,
             PAYROLL_MODEL,
+            ATTENDANCE_MODEL,
         )
         else build.context(model)
     )
@@ -37,6 +39,8 @@ def _context(build, model):
 def _validate(frame, model, build, sources, *, dim_date=None):
     if model == PAYROLL_MODEL:
         return validate_payroll(frame, build, sources)
+    if model == ATTENDANCE_MODEL:
+        return validate_attendance(frame, build, sources)
     if model == WORKFORCE_MODEL:
         return validate_workforce_monthly(frame, build, sources)
     if model in PHASE2_MODELS:
@@ -60,7 +64,7 @@ def local_dimension_path(root: str | Path, model: str, build: DimensionBuild) ->
     if ":" in text and not (path.drive and len(path.drive) == 2):
         raise ValueError("Storage schemes are not supported")
     base = path.resolve() / "gold" / model
-    if model == PAYROLL_MODEL:
+    if model in (PAYROLL_MODEL, ATTENDANCE_MODEL):
         # Exclusive local claim isolates even an empty or partially written build.
         # Parquet itself follows the approved year-first layout, below.
         base = base / "_build_claims"
@@ -72,6 +76,14 @@ def local_payroll_partition_path(root, build, reporting_year):
     if type(reporting_year) is not int or not 1 <= reporting_year <= 9999:
         raise ValueError("Invalid payroll reporting year")
     claim = local_dimension_path(root, PAYROLL_MODEL, build)
+    return claim.parent.parent / f"reporting_year={reporting_year}" / claim.name
+
+
+def local_attendance_partition_path(root, build, reporting_year):
+    """Native local attendance leaf using the shared immutable layout."""
+    if type(reporting_year) is not int or not 1 <= reporting_year <= 9999:
+        raise ValueError("Invalid attendance reporting year")
+    claim = local_dimension_path(root, ATTENDANCE_MODEL, build)
     return claim.parent.parent / f"reporting_year={reporting_year}" / claim.name
 
 
@@ -89,8 +101,28 @@ def _payroll_paths(frame, root, build):
     ]
 
 
+def _partition_paths(frame, root, model, build):
+    path_builder = (
+        local_payroll_partition_path
+        if model == PAYROLL_MODEL
+        else local_attendance_partition_path
+    )
+    return [
+        (row.reporting_year, path_builder(root, build, row.reporting_year))
+        for row in frame.select("reporting_year")
+        .distinct()
+        .orderBy("reporting_year")
+        .collect()
+    ]
+
+
 def _existing_payroll_paths(root, build):
     claim = local_dimension_path(root, PAYROLL_MODEL, build)
+    return set(claim.parent.parent.glob("reporting_year=*/" + claim.name))
+
+
+def _existing_partition_paths(root, model, build):
+    claim = local_dimension_path(root, model, build)
     return set(claim.parent.parent.glob("reporting_year=*/" + claim.name))
 
 
@@ -115,12 +147,10 @@ def verify_local_dimension(
             "Missing dimension output; verification cannot create it"
         )
     _validate(expected, model, build, sources, dim_date=dim_date)
-    if model == PAYROLL_MODEL:
-        paths = _payroll_paths(expected, root, build)
-        if _existing_payroll_paths(root, build) != {p for _, p in paths}:
-            raise ExistingOutputError(
-                "Payroll partition inventory differs from expected build"
-            )
+    if model in (PAYROLL_MODEL, ATTENDANCE_MODEL):
+        paths = _partition_paths(expected, root, model, build)
+        if _existing_partition_paths(root, model, build) != {p for _, p in paths}:
+            raise ExistingOutputError("Partition inventory differs from expected build")
         actual = None
         from pyspark.sql import functions as F
 
@@ -196,12 +226,13 @@ def write_local_dimension(
     """
     path = local_dimension_path(root, model, build)
     if path.exists() or (
-        model == PAYROLL_MODEL and _existing_payroll_paths(root, build)
+        model in (PAYROLL_MODEL, ATTENDANCE_MODEL)
+        and _existing_partition_paths(root, model, build)
     ):
         raise ExistingOutputError("Gold dimension destination already exists")
     _validate(frame, model, build, sources, dim_date=dim_date)
-    if model == PAYROLL_MODEL:
-        paths = _payroll_paths(frame, root, build)
+    if model in (PAYROLL_MODEL, ATTENDANCE_MODEL):
+        paths = _partition_paths(frame, root, model, build)
         try:
             path.mkdir(parents=True, exist_ok=False)
         except FileExistsError as error:

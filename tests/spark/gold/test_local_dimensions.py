@@ -45,7 +45,7 @@ class LocalPathTests(TestCase):
             with self.subTest(root=root), self.assertRaises(ValueError):
                 local_dimension_path(root, "dim_date", build)
         with self.assertRaises(ValueError):
-            local_dimension_path("local", "fact_attendance", build)
+            local_dimension_path("local", "fact_leave_request", build)
 
     def test_existing_destination_fails_before_dataframe_use(self):
         build = DimensionBuild(spec(), STAMP)

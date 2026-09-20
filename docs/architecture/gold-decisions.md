@@ -44,3 +44,13 @@ the source period's calendar month-end, including incomplete current-month pay.
 For cutoff 2024-04-15, the calendar includes 2024-04-30; payroll ending April 15
 uses reporting key 20240430 and assignment on April 15. No April workforce
 snapshot becomes eligible. The source cutoff is not extended.
+
+## Approved Phase 5 attendance
+
+Attendance is a daily source-grain fact. The source guarantees one record per
+employee/work date, `Absent` alone contributes an absent day, and controlled
+absence categories are retained. Assignment is historical at work date;
+current employee organisation is not used. Decimal hours are reconciled
+separately, attendance does not consume leave requests, and work-date
+eligibility remains employment- and source-cutoff-bounded. See the [Phase 5
+validation](../plans/gold-phase5-validation.md) record.

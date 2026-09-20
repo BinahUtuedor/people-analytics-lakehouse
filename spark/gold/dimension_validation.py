@@ -189,6 +189,7 @@ def enforce_schema(frame: DataFrame, model: str) -> DataFrame:
         "fact_employee_movement",
         "fact_workforce_monthly",
         "fact_payroll",
+        "fact_attendance",
     ):
         raise ValueError("Not an implemented Gold model")
     schema = get_gold_schema(model)

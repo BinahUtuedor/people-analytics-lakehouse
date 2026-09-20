@@ -3,7 +3,8 @@
 Status: complete. Implementation module: `spark/gold/payroll.py`.
 Baseline: existing uncommitted Phase 4 working tree on `main`,
 `fde508fee8decfc3647740da222909c56fd8d3f2`.
-Phase 5 has not started. No production release or cloud publication.
+Phase 5 attendance is now implemented and validated separately. No production
+release or cloud publication.
 
 ## Calendar conflict resolution
 

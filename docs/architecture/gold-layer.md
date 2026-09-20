@@ -5,7 +5,7 @@
 Gold data products are **design approved; no production release exists**. Phase 0
 is complete and approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
 Phase 2 complete: assignment and movement contract tests and local physical proof pass.
-Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll and Phase 5 attendance are complete and validated locally.
 No Gold job or CLI exists. This document records
 the explicit approved decisions and is the authoritative repository Gold design
 entry point. [Gold decisions](gold-decisions.md) records their rationale;
@@ -894,4 +894,15 @@ Payroll measures and employee linkage remain approved restricted detail. No
 names, email, DOB, gender, source notes or bank/tax/national identifiers are
 projected. Hashes do not anonymise data. Phase 2 history limitations remain.
 See [Phase 4 mapping and validation](../plans/gold-phase4-validation.md).
-Phase 5 has not started.
+## Gold Phase 5 - fact_attendance
+
+`spark/gold/attendance.py` implements the approved daily attendance fact. It
+retains one row per legitimate Silver attendance record, enforces the source
+employee/work-date grain, resolves historical assignment at work date, and
+derives `recorded_day_count` and `absent_day_count` only from governed status.
+`Absent` is the sole absent status; absence reasons remain controlled
+categories. Work-date eligibility remains bounded by employment and source
+cutoff even when `dim_date` extends to cutoff-month end. Hours and overtime use
+DECIMAL(18,4), with deterministic metadata/hashes and immutable
+reporting-year/build partitions. Attendance remains separate from future leave
+requests. Evidence is in [Phase 5 validation](../plans/gold-phase5-validation.md).
