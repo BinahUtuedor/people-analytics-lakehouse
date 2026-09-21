@@ -5,7 +5,7 @@
 Gold data products are **design approved; no production release exists**. Phase 0
 is complete and approved. Phase 1 core-dimension code and required Linux Parquet proof are complete;
 Phase 2 complete: assignment and movement contract tests and local physical proof pass.
-Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll and Phase 5 attendance are complete and validated locally.
+Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll and Phase 5 attendance are complete and validated locally. Phase 6 provides MVP-wide integration and release-readiness validation.
 No Gold job or CLI exists. This document records
 the explicit approved decisions and is the authoritative repository Gold design
 entry point. [Gold decisions](gold-decisions.md) records their rationale;

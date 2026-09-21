@@ -54,3 +54,11 @@ current employee organisation is not used. Decimal hours are reconciled
 separately, attendance does not consume leave requests, and work-date
 eligibility remains employment- and source-cutoff-bounded. See the [Phase 5
 validation](../plans/gold-phase5-validation.md) record.
+
+## Phase 6 MVP-wide validation
+
+The ten approved MVP models are validated together through shared references,
+dates, metadata, deterministic inventory and immutable release evidence.
+Model-specific semantics remain authoritative; Phase 6 does not add a model or
+alter cutoff, assignment, payroll, attendance, or workforce rules. See the
+[Phase 6 validation](../plans/gold-phase6-validation.md) record.

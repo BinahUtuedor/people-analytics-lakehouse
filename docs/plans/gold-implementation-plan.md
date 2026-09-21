@@ -4,7 +4,7 @@
 
 Gold design decisions are approved. Phase 0 is complete and approved. Phase 1 core-dimension code,
 in-memory validation and Linux Parquet validation are complete. Phase 1 is
-COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated. Phase 5 attendance is implemented and validated locally. No production Gold output
+COMPLETE; Phase 2 complete. Phase 3 complete: `fact_workforce_monthly` local validation and physical proof pass. Phase 4 payroll is complete and validated. Phase 5 attendance is implemented and validated locally. Phase 6 MVP-wide validation is complete. No production Gold output
 or Gold CLI exists. This plan is not permission to begin another phase. The authoritative design is
 [Gold layer](../architecture/gold-layer.md), with
 [decisions](../architecture/gold-decisions.md). All ten approved MVP schemas,
