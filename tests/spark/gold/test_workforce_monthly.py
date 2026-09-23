@@ -99,8 +99,9 @@ class WorkforceTests(CoreDimensionTestCase):
                 ("employee_id", number),
                 ("promotion_date", day),
                 ("new_role_id", number),
+                ("old_role_id", number),
             ],
-            [(11, 1, date(2024, 2, 10), 2), (12, 1, date(2024, 3, 20), 1)],
+            [(11, 1, date(2024, 2, 10), 2, 1), (12, 1, date(2024, 3, 20), 1, 2)],
         )
         transfers = literal_frame(
             cls.spark,
@@ -111,8 +112,11 @@ class WorkforceTests(CoreDimensionTestCase):
                 ("new_department_id", number),
                 ("new_location_id", number),
                 ("new_manager_id", number),
+                ("old_department_id", number),
+                ("old_location_id", number),
+                ("old_manager_id", number),
             ],
-            [(21, 1, date(2024, 3, 10), 2, 2, 2)],
+            [(21, 1, date(2024, 3, 10), 2, 2, 2, 1, 1, None)],
         )
         exits = literal_frame(
             cls.spark,
@@ -130,6 +134,14 @@ class WorkforceTests(CoreDimensionTestCase):
                 if end
             ],
         )
+        # Source employees describe the event endpoint, not the historical seed.
+        for attribute in ("department_id", "location_id", "manager_id"):
+            employees = employees.withColumn(
+                attribute,
+                F.when(F.col("employee_id") == 1, F.lit(2).cast("long")).otherwise(
+                    F.col(attribute)
+                ),
+            )
         cls.sources = dict(
             cls.sources,
             employees=employees,

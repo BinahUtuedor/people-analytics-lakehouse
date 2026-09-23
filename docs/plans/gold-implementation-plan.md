@@ -238,3 +238,12 @@ Calendar reference coverage is reporting_start through the month-end containing
 source_cutoff. Business coverage is unchanged. Payroll reporting month-end may
 follow its actual period end and cutoff; assignment uses actual period end.
 A reference date never makes a workforce snapshot or business event eligible.
+
+## Pre-Phase-7 corrective gate
+
+The architecture review identified G01-G04 after the historical Phase 6
+validation. Canonical key parity, historical evidence/endpoint reconciliation,
+EXIT-day assignment lookup and governed absence categories are addressed in
+the [bounded correction record](gold-pre-phase7-corrections.md).
+It records compatibility, rebuild requirements and new regression evidence. Historical phase results
+remain unchanged; Phase 7 has not started.

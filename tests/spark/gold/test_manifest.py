@@ -160,29 +160,20 @@ class ManifestTests(TestCase):
             with self.assertRaises(ValueError):
                 replace(manifest, **changes)
 
-    def test_acceptance_requires_all_evidence(self):
+    def test_success_claims_cannot_authorize_promotion(self):
         manifest = ReleaseManifest(spec(), STAMP, inventory())
         for status in (ReleaseStatus.VALIDATED, ReleaseStatus.ACCEPTED):
-            with self.assertRaises(ValueError):
-                replace(manifest, status=status)
-            accepted = replace(
-                manifest,
-                status=status,
-                models=inventory(True),
-                verification_outcomes={c: True for c in VERIFICATION_CHECKS},
-                reconciliation_metrics={"source_coverage": "passed"},
-            )
-            self.assertEqual(accepted.status, status)
-            with self.assertRaises(ValueError):
+            with (
+                self.subTest(status=status),
+                self.assertRaisesRegex(ValueError, "Evidence-backed promotion"),
+            ):
                 replace(
-                    accepted,
-                    verification_outcomes={
-                        **accepted.verification_outcomes,
-                        "foreign_key": False,
-                    },
+                    manifest,
+                    status=status,
+                    models=inventory(True),
+                    verification_outcomes={c: True for c in VERIFICATION_CHECKS},
+                    reconciliation_metrics={"source_coverage": "passed"},
                 )
-            with self.assertRaises(ValueError):
-                replace(accepted, reconciliation_metrics={})
 
     def test_partition_contract_and_empty_inventory(self):
         for partitions in (((), ()), (), ((("reporting_year", 2024),),)):

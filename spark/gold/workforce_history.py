@@ -16,7 +16,8 @@ from spark.gold.contracts import (
     unknown_business_row,
 )
 from spark.gold.dimension_validation import DimensionBuild, _gate, enforce_schema
-from spark.gold.hashing import spark_record_hash, frame
+from spark.gold.hashing import spark_record_hash
+from spark.gold.keys import spark_key as _spark_key
 from spark.gold.manifest import _utc
 from spark.gold.validate import ValidationContext
 
@@ -81,39 +82,6 @@ def _phase2_finish(real: DataFrame, model: str, build: DimensionBuild) -> DataFr
         ),
         model,
     )
-
-
-def _spark_key(namespace, kind, *values):
-    parts = [
-        F.lit((frame(value).decode("utf-8")))
-        for value in ("gold-key", "v1", namespace, kind)
-    ]
-    for value in values:
-        encoded = F.col(value).cast("string") if isinstance(value, str) else value
-        parts.append(
-            F.concat(
-                F.length(F.encode(encoded, "UTF-8")).cast("string"), F.lit(":"), encoded
-            )
-        )
-    return F.sha2(F.concat(*parts), 256)
-
-
-def _same_day_conflicts(events: DataFrame, build: DimensionBuild) -> None:
-    context = _ctx(build, "dim_employee_assignment")
-    for column in (
-        "department_key",
-        "job_role_key",
-        "location_key",
-        "manager_employee_key",
-    ):
-        conflict = (
-            events.filter(F.col(column).isNotNull())
-            .groupBy("employee_key", "event_date")
-            .agg(F.countDistinct(column).alias("n"))
-            .filter(F.col("n") > 1)
-            .count()
-        )
-        _gate(context, "same_day_conflict_" + column, conflict)
 
 
 def _reject_duplicates(
@@ -255,123 +223,126 @@ def build_dim_employee_assignment(
         "employee_positive",
         base.filter(F.col("employee_key") <= 0).count(),
     )
-    transfer_events = transfers.select(
-        F.col("employee_id").alias("employee_key"),
-        F.col("transfer_date").alias("event_date"),
-        F.col("new_department_id").alias("department_key"),
-        F.lit(None).cast("long").alias("job_role_key"),
-        F.col("new_location_id").alias("location_key"),
-        F.coalesce(F.col("new_manager_id"), F.lit(0)).alias("manager_employee_key"),
+    # Each attribute has its own evidence chain: promotion has only role;
+    # transfer has department/location/manager, never role. Missing old columns
+    # remain supported for partial historical extracts. Null old manager, when
+    # the column exists, explicitly means no manager; other null old IDs are
+    # unavailable evidence.
+    attributes = {
+        "department": ("department_key", "department_id"),
+        "role": ("job_role_key", "role_id"),
+        "location": ("location_key", "location_id"),
+        "manager": ("manager_employee_key", "manager_id"),
+    }
+
+    def event_frame(source, day, is_promotion):
+        expressions = []
+        for name, (key, source_name) in attributes.items():
+            applicable = (name == "role") == is_promotion
+            for prefix in ("old_", "new_"):
+                column = prefix + source_name
+                value = F.lit(None).cast("long")
+                if applicable and column in source.columns:
+                    value = F.col(column)
+                    if name == "manager":
+                        value = F.coalesce(value, F.lit(0).cast("long"))
+                expressions.append(value.alias(prefix + name))
+        return source.select(
+            F.col("employee_id").alias("employee_key"),
+            F.col(day).alias("event_date"),
+            *expressions,
+        )
+
+    events = event_frame(transfers, "transfer_date", False).unionByName(
+        event_frame(promotions, "promotion_date", True)
     )
-    promotion_events = promotions.select(
-        F.col("employee_id").alias("employee_key"),
-        F.col("promotion_date").alias("event_date"),
-        *[
-            F.lit(None).cast("long").alias(n)
-            for n in ("department_key", "location_key", "manager_employee_key")
-        ],
-        F.col("new_role_id").alias("job_role_key"),
-    )
-    events = transfer_events.unionByName(promotion_events)
-    _same_day_conflicts(events, build)
+    context = _ctx(build, "dim_employee_assignment")
+    # Same-day old AND new evidence must agree, independently. Intraday order
+    # cannot be inferred from source IDs.
+    for name, (key, _) in attributes.items():
+        for prefix in ("old_", "new_"):
+            column = prefix + name
+            conflicts = (
+                events.groupBy("employee_key", "event_date")
+                .agg(F.countDistinct(column).alias("n"))
+                .filter(F.col("n") > 1)
+                .count()
+            )
+            check = "same_day_conflict_" + (key if prefix == "new_" else column)
+            _gate(context, check, conflicts)
     events = events.groupBy("employee_key", "event_date").agg(
         *[
-            F.max(column).alias(column)
-            for column in (
-                "department_key",
-                "job_role_key",
-                "location_key",
-                "manager_employee_key",
-            )
+            F.max(prefix + name).alias(prefix + name)
+            for name in attributes
+            for prefix in ("old_", "new_")
         ]
     )
-    bounds = (
-        base.select("employee_key", F.col("hire_date").alias("valid_from_date"))
-        .unionByName(
-            events.join(base.select("employee_key", "hire_date"), "employee_key")
-            .select("employee_key", "event_date")
-            .withColumnRenamed("event_date", "valid_from_date")
-        )
-        .dropDuplicates(("employee_key", "valid_from_date"))
+    # Keep later source evidence for back-propagation and endpoint dating;
+    # emitted intervals alone are bounded by the declared source cutoff.
+    timeline = (
+        base.select("employee_key", F.col("hire_date").alias("event_date"))
+        .unionByName(events.select("employee_key", "event_date"))
+        .distinct()
+        .join(events, ["employee_key", "event_date"], "left")
+        .join(base, "employee_key", "inner")
+        .withColumnRenamed("event_date", "valid_from_date")
     )
-    bnd, bas, ev = bounds.alias("bnd"), base.alias("bas"), events.alias("ev")
-    seeded = bnd.join(bas, F.col("bnd.employee_key") == F.col("bas.employee_key")).join(
-        ev,
-        (F.col("bnd.employee_key") == F.col("ev.employee_key"))
-        & (F.col("bnd.valid_from_date") == F.col("ev.event_date")),
-        "left",
-    )
-    seeded = seeded.select(
-        F.col("bnd.employee_key").alias("employee_key"),
-        F.col("bnd.valid_from_date").alias("valid_from_date"),
-        F.col("bas.hire_date").alias("hire_date"),
-        F.col("bas.termination_date").alias("termination_date"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.col("bas.department_key"),
+    order = Window.partitionBy("employee_key").orderBy("valid_from_date")
+    preceding = order.rowsBetween(Window.unboundedPreceding, -1)
+    following = order.rowsBetween(1, Window.unboundedFollowing)
+    entire = order.rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
+    seeded = timeline
+    for name, (key, _) in attributes.items():
+        old, new = F.col("old_" + name), F.col("new_" + name)
+        prior = F.last("new_" + name, ignorenulls=True).over(preceding)
+        # A struct stops lookahead at the very next change, even if its old
+        # value is unavailable; evidence cannot jump across an unknown change.
+        next_change = (
+            F.first(
+                F.when(new.isNotNull(), F.struct(old.alias("value"))),
+                ignorenulls=True,
+            )
+            .over(following)
+            .getField("value")
         )
-        .otherwise(F.col("ev.department_key"))
-        .alias("department_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.col("bas.job_role_key"),
+        seeded = seeded.withColumn("_prior_" + name, prior)
+        contradictory = (
+            old.isNotNull()
+            & F.col("_prior_" + name).isNotNull()
+            & (old != F.col("_prior_" + name))
         )
-        .otherwise(F.col("ev.job_role_key"))
-        .alias("role_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.col("bas.location_key"),
+        _gate(
+            context, "history_continuity_" + name, seeded.filter(contradictory).count()
         )
-        .otherwise(F.col("ev.location_key"))
-        .alias("location_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.col("bas.manager_employee_key"),
+        value = F.coalesce(new, F.col("_prior_" + name), next_change, F.col(key))
+        evidence = (
+            new.isNotNull()
+            | F.col("_prior_" + name).isNotNull()
+            | next_change.isNotNull()
         )
-        .otherwise(F.col("ev.manager_employee_key"))
-        .alias("manager_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.lit("current-state-assumed"),
-        )
-        .otherwise(
-            F.when(F.col("ev.department_key").isNotNull(), F.lit("event-derived"))
-        )
-        .alias("department_basis_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.lit("current-state-assumed"),
-        )
-        .otherwise(F.when(F.col("ev.job_role_key").isNotNull(), F.lit("event-derived")))
-        .alias("role_basis_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.lit("current-state-assumed"),
-        )
-        .otherwise(F.when(F.col("ev.location_key").isNotNull(), F.lit("event-derived")))
-        .alias("location_basis_value"),
-        F.when(
-            F.col("bnd.valid_from_date") == F.col("bas.hire_date"),
-            F.lit("current-state-assumed"),
-        )
-        .otherwise(
-            F.when(F.col("ev.manager_employee_key").isNotNull(), F.lit("event-derived"))
-        )
-        .alias("manager_basis_value"),
-    )
-    window = (
-        Window.partitionBy("employee_key")
-        .orderBy("valid_from_date")
-        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
-    )
-    for name in ("department", "role", "location", "manager"):
-        seeded = seeded.withColumn(
-            name + "_key",
-            F.last("{}_value".format(name), ignorenulls=True).over(window),
-        ).withColumn(
+        seeded = seeded.withColumn(name + "_value", value).withColumn(
             name + "_history_basis",
-            F.last("{}_basis_value".format(name), ignorenulls=True).over(window),
+            F.when(evidence, F.lit("event-derived")).otherwise(
+                F.lit("current-state-assumed")
+            ),
         )
+        # Employee is a current-state snapshot. Compare only when no later
+        # change in this source batch puts its endpoint beyond the cutoff.
+        last_event = F.max(F.when(new.isNotNull(), F.col("valid_from_date"))).over(
+            entire
+        )
+        final_value = F.last("new_" + name, ignorenulls=True).over(entire)
+        seeded = seeded.withColumn("_last_date_" + name, last_event).withColumn(
+            "_final_" + name, final_value
+        )
+        endpoint_bad = (
+            (F.col("_last_date_" + name) <= F.lit(build.spec.source_cutoff))
+            & F.col(key).isNotNull()
+            & (~F.col("_final_" + name).eqNullSafe(F.col(key)))
+        )
+        _gate(context, "history_endpoint_" + name, seeded.filter(endpoint_bad).count())
+    for name in attributes:
+        seeded = seeded.withColumn(name + "_key", F.col(name + "_value"))
     result = seeded.withColumn(
         "next_boundary",
         F.lead("valid_from_date").over(
@@ -605,7 +576,11 @@ def build_fact_employee_movement(
     before_candidates = out.alias("event").join(
         real_assignments.alias("before"),
         (F.col("event.employee_key") == F.col("before.employee_key"))
-        & (F.col("before.valid_from_date") < F.col("event.event_date")),
+        & F.when(
+            F.col("event.movement_type") == "EXIT",
+            (F.col("before.valid_from_date") <= F.col("event.event_date"))
+            & (F.col("event.event_date") < F.col("before.valid_to_exclusive")),
+        ).otherwise(F.col("before.valid_from_date") < F.col("event.event_date")),
         "left",
     )
     before_latest = before_candidates.groupBy("event.movement_key").agg(

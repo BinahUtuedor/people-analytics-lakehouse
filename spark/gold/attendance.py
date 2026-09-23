@@ -27,6 +27,7 @@ from spark.gold.dimension_validation import (
     validate_source,
 )
 from spark.gold.hashing import spark_record_hash
+from spark.gold.reference import absence_domain
 from spark.gold.validate import ValidationReport, validate_schema
 from spark.gold.workforce_history import (
     _ctx,
@@ -58,11 +59,13 @@ def _decimal_invalid(frame: DataFrame, name: str):
 def normalize_attendance_source(source: DataFrame, build: DimensionBuild) -> DataFrame:
     """Validate Silver attendance values before exact Gold normalization."""
     context = _ctx(build, ATTENDANCE_MODEL)
+    build.spec.require_supported()
     build.require_runtime(source.sparkSession)
     required = {
         "attendance_id": LongType(),
         "employee_id": LongType(),
         "status": StringType(),
+        "absence_reason": StringType(),
         "_batch_id": StringType(),
     }
     bad_schema = len(source.columns) != len(set(source.columns)) or any(
@@ -87,10 +90,14 @@ def normalize_attendance_source(source: DataFrame, build: DimensionBuild) -> Dat
     _gate(context, "attendance_source_schema", int(bad_schema))
 
     invalid = ~F.col("_batch_id").eqNullSafe(F.lit(build.spec.silver_batch_id))
-    for name in required:
+    for name in required.keys() - {"absence_reason"}:
         invalid = invalid | F.col(name).isNull()
     invalid = invalid | (F.col("attendance_id") <= 0) | (F.col("employee_id") <= 0)
     invalid = invalid | ~F.col("status").isin(*STATUS_VALUES)
+    invalid = invalid | (
+        F.col("absence_reason").isNotNull()
+        & ~F.col("absence_reason").isin(*absence_domain())
+    )
     invalid = invalid | F.col("absence_reason").isNotNull() & (
         F.length(F.trim("absence_reason")) == 0
     )

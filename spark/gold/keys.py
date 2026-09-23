@@ -54,3 +54,28 @@ def movement_key(namespace: str, movement_type: str, source_record_id: int) -> s
         raise ValueError("Unsupported movement type")
     positive_source_id(source_record_id)
     return _key(namespace, "movement", movement_type, str(source_record_id))
+
+
+def spark_key(namespace, kind, *values):
+    """Distributed counterpart of the canonical v1 key encoding.
+
+    Identity fields are required, never nullable. Callers validate their source
+    identities; a null expression produces null rather than a fabricated key.
+    Dates and signed integer IDs use Spark's ISO/date and decimal string casts.
+    """
+    from pyspark.sql import functions as F
+
+    if type(namespace) is not str or not namespace.strip():
+        raise ValueError("An explicit nonempty source namespace is required")
+    parts = [
+        F.lit(frame(value).decode("utf-8"))
+        for value in ("gold-key", KEY_VERSION, SERIALIZATION_VERSION, namespace, kind)
+    ]
+    for value in values:
+        encoded = (F.col(value) if isinstance(value, str) else value).cast("string")
+        parts.append(
+            F.concat(
+                F.length(F.encode(encoded, "UTF-8")).cast("string"), F.lit(":"), encoded
+            )
+        )
+    return F.sha2(F.concat(*parts), 256)

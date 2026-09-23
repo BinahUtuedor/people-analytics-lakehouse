@@ -249,7 +249,14 @@ def build_release_manifest(
     verification_outcomes: Mapping[str, bool] | None = None,
     reconciliation_metrics: Mapping[str, str] | None = None,
 ) -> ReleaseManifest:
-    """Build the exact ten-model manifest from a supplied logical MVP build."""
+    """Build an unaccepted inventory; supplied diagnostics cannot promote it.
+
+    This helper does not execute the complete model/source/physical validation
+    boundary. Keep status explicit for fail-closed rejection of older callers
+    that supplied VALIDATED/ACCEPTED, rather than silently downgrading them.
+    """
+    if status is not ReleaseStatus.BUILDING:
+        raise ValueError("Manifest factory is BUILDING-only; promotion is unavailable")
     _require_inventory(frames)
     reports = release_reconciliation_report(frames)
     report_by_model = {r["model"]: r for r in reports}

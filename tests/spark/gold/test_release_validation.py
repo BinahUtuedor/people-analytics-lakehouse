@@ -141,6 +141,42 @@ class ReleaseValidationTests(CoreDimensionTestCase):
             )
         )
 
+    def test_secondary_grain_and_mixed_build_fail_closed(self):
+        from pyspark.sql import functions as F
+
+        bad = dict(self.frames)
+        extra = (
+            bad["fact_attendance"]
+            .limit(1)
+            .withColumn("attendance_id", F.lit(9223372036854775807).cast("long"))
+        )
+        bad["fact_attendance"] = bad["fact_attendance"].unionByName(extra)
+        result = validate_mvp_frames(bad, self.build)
+        self.assertFalse(result["passed"])
+        self.assertTrue(
+            any(
+                "employee_key,work_date_key" in name for name in result["failed_checks"]
+            )
+        )
+        mixed = dict(self.frames)
+        mixed["fact_attendance"] = mixed["fact_attendance"].withColumn(
+            "_gold_build_id", F.lit("another-build")
+        )
+        self.assertFalse(validate_mvp_frames(mixed, self.build)["passed"])
+        for frames in (bad, mixed):
+            for status in (ReleaseStatus.VALIDATED, ReleaseStatus.ACCEPTED):
+                with self.assertRaisesRegex(ValueError, "BUILDING-only"):
+                    build_release_manifest(
+                        frames,
+                        self.build,
+                        self.build.generated_at,
+                        status=status,
+                        verification_outcomes={
+                            name: True for name in VERIFICATION_CHECKS
+                        },
+                        reconciliation_metrics={"cross_model": "passed"},
+                    )
+
     def test_build_identity_and_manifest_lifecycle(self):
         first = build_release_manifest(self.frames, self.build, self.build.generated_at)
         second = build_release_manifest(
@@ -150,15 +186,15 @@ class ReleaseValidationTests(CoreDimensionTestCase):
         )
         self.assertEqual(first.to_json(), second.to_json())
         self.assertEqual(first.status, ReleaseStatus.BUILDING)
-        accepted = build_release_manifest(
-            self.frames,
-            self.build,
-            self.build.generated_at,
-            status=ReleaseStatus.ACCEPTED,
-            verification_outcomes={name: True for name in VERIFICATION_CHECKS},
-            reconciliation_metrics={"cross_model": "passed"},
-        )
-        self.assertEqual(accepted.status, ReleaseStatus.ACCEPTED)
+        with self.assertRaisesRegex(ValueError, "BUILDING-only"):
+            build_release_manifest(
+                self.frames,
+                self.build,
+                self.build.generated_at,
+                status=ReleaseStatus.ACCEPTED,
+                verification_outcomes={name: True for name in VERIFICATION_CHECKS},
+                reconciliation_metrics={"cross_model": "passed"},
+            )
         changed = replace(self.build.spec, silver_batch_id="different-batch")
         self.assertNotEqual(self.build.spec.build_id, changed.build_id)
         with self.assertRaises(ExistingOutputError):
@@ -188,6 +224,74 @@ class ReleaseValidationTests(CoreDimensionTestCase):
                     self.sources,
                     dim_date=self.frames["dim_date"],
                 )
+
+    def test_g02_g03_shared_history_at_each_fact_reference_date(self):
+        # Independent source timeline: role changes Feb 10; organisation and
+        # manager change Mar 10. Every fact consumes the same assignment keys.
+        def state(day):
+            return (
+                2 if day >= 20240310 else 1,
+                2 if day >= 20240210 else 1,
+                2 if day >= 20240310 else 1,
+                2 if day >= 20240310 else 0,
+            )
+
+        assignments = {
+            r.assignment_key: r
+            for r in self.frames["dim_employee_assignment"].collect()
+        }
+        fields = (
+            "department_key",
+            "job_role_key",
+            "location_key",
+            "manager_employee_key",
+        )
+        for model, date_field in (
+            ("fact_attendance", "work_date_key"),
+            ("fact_payroll", "pay_period_end_key"),
+            ("fact_workforce_monthly", "assignment_date_key"),
+        ):
+            for row in self.frames[model].filter("employee_key = 1").collect():
+                with self.subTest(model=model, day=row[date_field]):
+                    self.assertEqual(
+                        tuple(row[n] for n in fields), state(row[date_field])
+                    )
+                    self.assertEqual(
+                        tuple(assignments[row.assignment_key][n] for n in fields),
+                        state(row[date_field]),
+                    )
+        events = {
+            r.movement_type: r
+            for r in self.frames["fact_employee_movement"]
+            .filter("employee_key = 1")
+            .collect()
+        }
+        self.assertEqual(
+            tuple(events["PROMOTION"]["before_" + n] for n in fields), (1, 1, 1, 0)
+        )
+        self.assertEqual(
+            tuple(events["PROMOTION"]["after_" + n] for n in fields), (1, 2, 1, 0)
+        )
+        self.assertEqual(
+            tuple(events["TRANSFER"]["before_" + n] for n in fields), (1, 2, 1, 0)
+        )
+        self.assertEqual(
+            tuple(events["TRANSFER"]["after_" + n] for n in fields), (2, 2, 2, 2)
+        )
+        exit_event = (
+            self.frames["fact_employee_movement"]
+            .filter("movement_type = 'EXIT'")
+            .first()
+        )
+        final_pay = self.frames["fact_payroll"].filter("employee_key = 3").first()
+        final_attendance = (
+            self.frames["fact_attendance"].filter("employee_key = 3").first()
+        )
+        self.assertEqual(exit_event.before_assignment_key, final_pay.assignment_key)
+        self.assertEqual(
+            exit_event.before_assignment_key, final_attendance.assignment_key
+        )
+        self.assertEqual(exit_event.after_assignment_key, "0")
 
 
 if __name__ == "__main__":

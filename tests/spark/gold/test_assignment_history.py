@@ -24,9 +24,9 @@ class Phase2SmokeTests(CoreDimensionTestCase):
     def setUp(self):
         self.employees = (
             self.sources["employees"]
-            .withColumn("department_id", F.col("employee_id"))
-            .withColumn("role_id", F.col("employee_id"))
-            .withColumn("location_id", F.col("employee_id"))
+            .withColumn("department_id", F.lit(2).cast("long"))
+            .withColumn("role_id", F.lit(2).cast("long"))
+            .withColumn("location_id", F.lit(2).cast("long"))
             .withColumn("manager_id", F.lit(None).cast("long"))
         )
         text, number, day = StringType(), LongType(), DateType()
@@ -37,8 +37,9 @@ class Phase2SmokeTests(CoreDimensionTestCase):
                 ("employee_id", number),
                 ("promotion_date", day),
                 ("new_role_id", number),
+                ("old_role_id", number),
             ],
-            [(10, 1, date(2024, 1, 15), 2)],
+            [(10, 1, date(2024, 1, 15), 2, 1)],
         )
         self.transfers = literal_frame(
             self.spark,
@@ -49,8 +50,11 @@ class Phase2SmokeTests(CoreDimensionTestCase):
                 ("new_department_id", number),
                 ("new_location_id", number),
                 ("new_manager_id", number),
+                ("old_department_id", number),
+                ("old_location_id", number),
+                ("old_manager_id", number),
             ],
-            [(20, 1, date(2024, 2, 1), 2, 2, None)],
+            [(20, 1, date(2024, 2, 1), 2, 2, None, 1, 1, None)],
         )
         self.exits = literal_frame(
             self.spark,
@@ -239,6 +243,8 @@ class Phase2SmokeTests(CoreDimensionTestCase):
             .withColumn("promotion_date", F.lit(date(2024, 2, 15)))
             .withColumn("new_role_id", F.lit(1).cast("long"))
         )
+        later = later.withColumn("old_role_id", F.lit(2).cast("long"))
+        self.employees = self.employees.withColumn("role_id", F.lit(1).cast("long"))
         self.promotions = self.promotions.unionByName(later)
         self.assert_history(
             [(1, 1, 1, 0), (1, 2, 1, 0), (2, 2, 2, 0), (2, 1, 2, 0)],
@@ -248,6 +254,9 @@ class Phase2SmokeTests(CoreDimensionTestCase):
     def test_promotion_carries_organisation_and_manager(self):
         self.employees = self.employees.withColumn("manager_id", F.lit(2).cast("long"))
         self.transfers = self.transfers.limit(0)
+        self.employees = self.employees.withColumn(
+            "department_id", F.lit(1).cast("long")
+        ).withColumn("location_id", F.lit(1).cast("long"))
         self.assert_history([(1, 1, 1, 2), (1, 2, 1, 2)], ["PROMOTION"])
 
     def test_transfer_carries_role_and_null_manager_means_no_manager(self):
@@ -255,6 +264,12 @@ class Phase2SmokeTests(CoreDimensionTestCase):
         # means no manager, not unchanged; transfer does not expose a role field.
         self.employees = self.employees.withColumn("manager_id", F.lit(2).cast("long"))
         self.promotions = self.promotions.limit(0)
+        self.transfers = self.transfers.withColumn(
+            "old_manager_id", F.lit(2).cast("long")
+        )
+        self.employees = self.employees.withColumn(
+            "role_id", F.lit(1).cast("long")
+        ).withColumn("manager_id", F.lit(None).cast("long"))
         self.assert_history([(1, 1, 1, 2), (2, 1, 2, 0)], ["TRANSFER"])
 
     def test_null_manager(self):
@@ -273,6 +288,9 @@ class Phase2SmokeTests(CoreDimensionTestCase):
     def test_unresolved_manager(self):
         self.employees = self.employees.withColumn(
             "manager_id", F.lit(999).cast("long")
+        )
+        self.transfers = self.transfers.withColumn(
+            "new_manager_id", F.lit(999).cast("long")
         )
         a, m = self.build_pair()
         self.assertEqual({r.manager_employee_key for r in a.collect()}, {0})
@@ -473,6 +491,18 @@ class Phase2SmokeTests(CoreDimensionTestCase):
             with self.subTest(attribute=source):
                 original = self.employees
                 self.employees = original.withColumn(source, F.lit(None).cast("long"))
+                original_promotions, original_transfers = (
+                    self.promotions,
+                    self.transfers,
+                )
+                if source == "role_id":
+                    self.promotions = self.promotions.withColumn(
+                        "old_role_id", F.lit(None).cast("long")
+                    )
+                else:
+                    self.transfers = self.transfers.withColumn(
+                        "old_" + source, F.lit(None).cast("long")
+                    )
                 a, m = self.build_pair()
                 baseline = (
                     a.filter("employee_key = 1").orderBy("valid_from_date").first()
@@ -482,6 +512,10 @@ class Phase2SmokeTests(CoreDimensionTestCase):
                 hire = m.filter("employee_key = 1 AND movement_type = 'HIRE'").first()
                 self.assertEqual(hire["after_" + key], 0)
                 self.employees = original
+                self.promotions, self.transfers = (
+                    original_promotions,
+                    original_transfers,
+                )
 
     def test_unresolved_required_dimension_references_fail_before_write(self):
         for dataset, gate in (

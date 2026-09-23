@@ -1296,3 +1296,12 @@ The project is intended for educational, engineering and portfolio purposes.
 **Utuedor Binah**
 
 Enterprise Data Engineering • Analytics Engineering • Cloud Data Engineering • Data Architecture • People Analytics
+
+## Pre-Phase-7 corrective gate
+
+The architecture review identified G01-G04 after the historical Phase 6
+validation. Canonical key parity, historical evidence/endpoint reconciliation,
+EXIT-day assignment lookup and governed absence categories are addressed in
+the [bounded correction record](docs/plans/gold-pre-phase7-corrections.md).
+It records compatibility, rebuild requirements and new regression evidence. Historical phase results
+remain unchanged; Phase 7 has not started.

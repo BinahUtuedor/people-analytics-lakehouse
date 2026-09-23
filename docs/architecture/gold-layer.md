@@ -695,10 +695,12 @@ canonical record hash. They never create fact rows or repair mandatory FKs.
 
 A manifest lists exactly all ten MVP models and explicit partition sets, even
 when empty. Unpartitioned models have one unpartitioned entry. Counts and
-logical-content fingerprints can be absent while BUILDING; VALIDATED/ACCEPTED
-require counts, fingerprints, reconciliation metrics and successful evidence for
-all declared verification gates. These are evidence contracts, not a physical
-acceptance implementation or a substitute for an exclusive release claim.
+logical-content fingerprints can be absent while BUILDING. Following R01, the
+frame-to-manifest factory is BUILDING-only; direct construction permits BUILDING
+or FAILED. Caller-supplied flags and metrics are diagnostic claims, never
+promotion authority. VALIDATED and ACCEPTED remain reserved lifecycle states,
+but cannot be constructed until a dedicated evidence-backed promotion boundary
+is implemented. No such API or physical acceptance publisher exists today.
 A `_SUCCESS` file alone never means acceptance.
 
 `VerificationRequest` has no write capability or repair options. Its executable
@@ -906,3 +908,35 @@ cutoff even when `dim_date` extends to cutoff-month end. Hours and overtime use
 DECIMAL(18,4), with deterministic metadata/hashes and immutable
 reporting-year/build partitions. Attendance remains separate from future leave
 requests. Evidence is in [Phase 5 validation](../plans/gold-phase5-validation.md).
+
+## Pre-Phase-7 corrective gate
+
+The architecture review identified G01-G04 after the historical Phase 6
+validation. Canonical key parity, historical evidence/endpoint reconciliation,
+EXIT-day assignment lookup and governed absence categories are addressed in
+the [bounded correction record](../plans/gold-pre-phase7-corrections.md).
+It records compatibility, rebuild requirements and new regression evidence. Historical phase results
+remain unchanged; Phase 7 has not started.
+
+## R01: release acceptance boundary correction
+
+The post-G01-G04 reconfirmation found that success flags could previously create
+VALIDATED/ACCEPTED without binding them to executed validation. Pattern B now
+rejects those states in both generic construction paths, including dataclass
+replacement. The factory produces BUILDING only; FAILED can record rejection.
+No alternate token, boolean or evidence-string bypass is provided.
+
+The intended lifecycle remains BUILDING -> VALIDATED -> ACCEPTED, with FAILED
+for a rejected build. BUILDING can contain incomplete/unverified diagnostics.
+A future dedicated promotion API must establish VALIDATED from successful
+model/schema/grain/date, cross-model and model-specific source reconciliation
+for the exact deterministic build. ACCEPTED additionally requires matching
+physical inventory, schema/content/hash/metadata readback and immutable-output
+verification. The ten-model inventory, partition set and build ID must bind all
+such evidence. Pending, failed, missing or unperformed mandatory checks cannot
+qualify. No promotion, including FAILED -> ACCEPTED, is available today.
+
+Existing model validators and local writer/readback checks remain authoritative
+and unchanged. Their separate success does not currently promote a release.
+This correction adds no publisher, storage layout, model, or Phase 7 work.
+See the [R01 correction record](../plans/gold-pre-phase7-corrections.md#r01-architecture-reconfirmation-correction).

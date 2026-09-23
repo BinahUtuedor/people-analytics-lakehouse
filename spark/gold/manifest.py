@@ -21,6 +21,7 @@ from spark.gold.contracts import (
     SERIALIZATION_VERSION,
 )
 from spark.gold.hashing import canonical_json
+from spark.gold.reference import absence_domain_fingerprint
 
 # Identifiers for the approved decisions, not configurable alternative semantics.
 APPROVED_ASSUMPTIONS = (
@@ -102,8 +103,10 @@ class BuildSpec:
     serialization_version: str = SERIALIZATION_VERSION
     key_version: str = KEY_VERSION
     manifest_version: str = MANIFEST_VERSION
+    absence_domain_digest: str = field(default_factory=absence_domain_fingerprint)
 
     def __post_init__(self):
+        _digest(self.absence_domain_digest)
         for value in (
             self.silver_batch_id,
             self.source_namespace,
@@ -158,6 +161,7 @@ class BuildSpec:
             "serialization_version": self.serialization_version,
             "key_version": self.key_version,
             "manifest_version": self.manifest_version,
+            "absence_domain_digest": self.absence_domain_digest,
         }
 
     @property
@@ -169,6 +173,8 @@ class BuildSpec:
         ).hexdigest()
 
     def require_supported(self) -> None:
+        if self.absence_domain_digest != absence_domain_fingerprint():
+            raise ValueError("Governed absence domain differs from build identity")
         if (
             self.schema_version,
             self.serialization_version,
@@ -188,6 +194,8 @@ class BuildSpec:
 
 
 class ReleaseStatus(str, Enum):
+    """Lifecycle vocabulary; successful promotion is not implemented yet."""
+
     BUILDING = "BUILDING"
     VALIDATED = "VALIDATED"
     ACCEPTED = "ACCEPTED"
@@ -300,6 +308,13 @@ VERIFICATION_CHECKS = (
 
 @dataclass(frozen=True)
 class ReleaseManifest:
+    """Unaccepted inventory or failure record, never caller-authorized acceptance.
+
+    VALIDATED and ACCEPTED are reserved for a future evidence-backed promotion
+    boundary. Diagnostic booleans/metrics are not proof that model validation,
+    reconciliation and physical readback ran for this exact build.
+    """
+
     spec: BuildSpec
     generated_at: datetime
     models: tuple[ModelInventory, ...]
@@ -314,6 +329,11 @@ class ReleaseManifest:
         _utc(self.generated_at)
         if not isinstance(self.status, ReleaseStatus):
             raise ValueError("Invalid release status")
+        if self.status in (ReleaseStatus.VALIDATED, ReleaseStatus.ACCEPTED):
+            raise ValueError(
+                "Evidence-backed promotion is not implemented; "
+                "manifest construction permits only BUILDING or FAILED"
+            )
         models = tuple(self.models)
         if any(not isinstance(model, ModelInventory) for model in models):
             raise ValueError("Typed model inventories required")
@@ -330,23 +350,6 @@ class ReleaseManifest:
         for key, value in metrics.items():
             _text(key)
             _text(value)
-        if self.status in (ReleaseStatus.VALIDATED, ReleaseStatus.ACCEPTED):
-            if set(outcomes) != set(VERIFICATION_CHECKS) or not all(outcomes.values()):
-                raise ValueError(
-                    "Validation/acceptance requires all verification gates"
-                )
-            if not metrics or any(
-                m.row_count is None or m.content_fingerprint is None for m in models
-            ):
-                raise ValueError(
-                    "Validation/acceptance requires counts, content and reconciliation evidence"
-                )
-            if any(
-                GOLD_MODELS[m.model].unknown_member and m.row_count < 1 for m in models
-            ):
-                raise ValueError(
-                    "Validated dimensions must include their unknown member"
-                )
         object.__setattr__(self, "models", tuple(sorted(models, key=lambda m: m.model)))
         object.__setattr__(self, "verification_outcomes", MappingProxyType(outcomes))
         object.__setattr__(self, "reconciliation_metrics", MappingProxyType(metrics))

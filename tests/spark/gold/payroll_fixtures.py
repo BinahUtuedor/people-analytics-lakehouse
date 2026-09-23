@@ -72,8 +72,9 @@ def payroll_fixture(spark, sources, build):
             ("employee_id", number),
             ("promotion_date", day),
             ("new_role_id", number),
+            ("old_role_id", number),
         ],
-        [(11, 1, date(2024, 2, 10), 2)],
+        [(11, 1, date(2024, 2, 10), 2, 1)],
     )
     transfers = literal_frame(
         spark,
@@ -84,8 +85,11 @@ def payroll_fixture(spark, sources, build):
             ("new_department_id", number),
             ("new_location_id", number),
             ("new_manager_id", number),
+            ("old_department_id", number),
+            ("old_location_id", number),
+            ("old_manager_id", number),
         ],
-        [(21, 1, date(2024, 3, 10), 2, 2, 2)],
+        [(21, 1, date(2024, 3, 10), 2, 2, 2, 1, 1, None)],
     )
     exits = literal_frame(
         spark,
@@ -99,6 +103,20 @@ def payroll_fixture(spark, sources, build):
         ],
         [(31, 3, date(2024, 4, 15), "Voluntary", True, False)],
     )
+    # Source employees describe the event endpoint, not the historical seed.
+    for attribute in ("department_id", "location_id", "manager_id"):
+        employees = employees.withColumn(
+            attribute,
+            F.when(F.col("employee_id") == 1, F.lit(2).cast("long")).otherwise(
+                F.col(attribute)
+            ),
+        )
+    employees = employees.withColumn(
+        "role_id",
+        F.when(F.col("employee_id") == 1, F.lit(2).cast("long")).otherwise(
+            F.col("role_id")
+        ),
+    )
     sources = dict(
         sources,
         employees=employees,
@@ -111,13 +129,6 @@ def payroll_fixture(spark, sources, build):
     sources.update(core_dimensions(spark, sources, build))
     sources["dim_employee_assignment"] = build_dim_employee_assignment(
         employees, promotions, transfers, exits, build
-    )
-    # Payroll consumes already supplied historical intervals. The current source
-    # organisation now differs from its earlier intervals and must not replace them.
-    sources["employees"] = employees.withColumn(
-        "department_id", F.when(F.col("employee_id") == 1, 2).otherwise(1).cast("long")
-    ).withColumn(
-        "role_id", F.when(F.col("employee_id") == 1, 2).otherwise(1).cast("long")
     )
     records = [
         (101, 1, date(2023, 12, 1), date(2023, 12, 31), "GBP", "100.02", "10.01"),

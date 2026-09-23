@@ -41,3 +41,28 @@ Bronze/Silver **41/41** (exit 0). The EMR-compatible runtime remains Python
 Deterministic hashes are integrity identifiers, not
 anonymisation. No post-MVP model, dbt, serving engine, Terraform, or
 orchestration work is included.
+
+## Pre-Phase-7 corrective gate
+
+The architecture review identified G01-G04 after the historical Phase 6
+validation. Canonical key parity, historical evidence/endpoint reconciliation,
+EXIT-day assignment lookup and governed absence categories are addressed in
+the [bounded correction record](gold-pre-phase7-corrections.md).
+It records compatibility, rebuild requirements and new regression evidence. Historical phase results
+remain unchanged; Phase 7 has not started.
+
+## R01 architecture-reconfirmation correction
+
+After the G01-G04 gate, review identified caller-authorized acceptance in the
+manifest helpers. The historical Phase 6 tests checked supplied success claims;
+they did not establish an evidence-backed release promotion boundary. Their
+recorded results remain historical evidence, not proof of that missing boundary.
+
+R01 selects Pattern B: the frame factory is BUILDING-only, and direct manifests
+allow BUILDING/FAILED only. VALIDATED/ACCEPTED remain intended lifecycle states
+reserved for a future dedicated API binding logical and physical validation to
+the exact build and inventory. No such promotion API exists today. Diagnostic
+flags cannot authorize acceptance. Existing validators and immutable local
+writer/readback behavior are unchanged; no production publisher is introduced.
+
+See the [bounded R01 correction record](gold-pre-phase7-corrections.md#r01-architecture-reconfirmation-correction).
